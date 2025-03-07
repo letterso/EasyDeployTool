@@ -32,6 +32,7 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
   ${CUDA_LIBRARIES}
   nvinfer 
   nvonnxparser
+  nvinfer_plugin
   deploy_core
 )
 

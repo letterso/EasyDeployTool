@@ -9,6 +9,7 @@
 // thirdparty
 #include <NvInfer.h>
 #include <NvOnnxParser.h>
+#include <NvInferPlugin.h>
 #include <cuda_runtime_api.h>
 
 #include "trt_blob_buffer.hpp"
@@ -177,6 +178,8 @@ TrtInferCore::~TrtInferCore()
 
 void TrtInferCore::LoadEngine(const std::string &engine_path)
 {
+  initLibNvInferPlugins(nullptr, "");
+  
   std::ifstream file(engine_path, std::ios::binary);
   if (!file.good())
   {
