@@ -3,11 +3,15 @@
 IMAGE_BASE_NAME="easy_deploy_base_dev"
 BUILT_IMAGE_TAG=""
 
-CONTAINER_NAME="easy_deploy"
+script_dir="$( cd "$(dirname "$0")" && pwd )"
+parent_dir="$( cd "$script_dir/../.." && pwd )"
+parent_dir_name="$(basename "$parent_dir")"
+
+CONTAINER_NAME="easy_deploy_${parent_dir_name}"
 
 usage() {
   echo "Usage: $0 --platform=<platform>"
-  echo "Available platforms: jetson, nvidia_gpu, rk3588"
+  echo "Available platforms: jetson_trt8_u2204, jetson_trt8_u2004, nvidia_gpu, rk3588"
   exit 1
 }
 
@@ -53,16 +57,26 @@ build_rk3588_image() {
   if is_image_exist ${BUILT_IMAGE_TAG}; then
     echo Image: ${BUILT_IMAGE_TAG} exists! Skip image building process ...
   else
-    docker build -f rknn_u2204.dockerfile -t ${BUILT_IMAGE_TAG} . 
+    docker build -f ${script_dir}/rknn_u2204.dockerfile -t ${BUILT_IMAGE_TAG} . 
   fi
 }
 
-build_jetson_image() {
+build_jetson_trt8_u2204_image() {
+  BUILT_IMAGE_TAG=${IMAGE_BASE_NAME}:jetson_tensorrt8_u2204
+  if is_image_exist ${BUILT_IMAGE_TAG}; then
+    echo Image: ${BUILT_IMAGE_TAG} exists! Skip image building process ...
+  else
+    docker build -f ${script_dir}/jetson_tensorrt_trt8_u2204.dockerfile -t ${BUILT_IMAGE_TAG} . 
+  fi
+}
+
+
+build_jetson_trt8_u2004_image() {
   BUILT_IMAGE_TAG=${IMAGE_BASE_NAME}:jetson_tensorrt8_u2004
   if is_image_exist ${BUILT_IMAGE_TAG}; then
     echo Image: ${BUILT_IMAGE_TAG} exists! Skip image building process ...
   else
-    docker build -f jetson_tensorrt_trt8_u2204.dockerfile -t ${BUILT_IMAGE_TAG} . 
+    docker build -f ${script_dir}/jetson_tensorrt_trt8_u2004.dockerfile -t ${BUILT_IMAGE_TAG} . 
   fi
 }
 
@@ -71,15 +85,19 @@ build_nvidia_gpu_image() {
   if is_image_exist ${BUILT_IMAGE_TAG}; then
     echo Image: ${BUILT_IMAGE_TAG} exists! Skip image building process ...
   else
-    docker build -f nvidia_gpu_tensorrt_u2204.dockerfile -t ${BUILT_IMAGE_TAG} . 
+    docker build -f ${script_dir}/nvidia_gpu_tensorrt_u2204.dockerfile -t ${BUILT_IMAGE_TAG} . 
   fi
 }
 
 build_image() {
   case $PLATFORM in
-      jetson)
-          echo "Start Building Docker image for Jetson platform..."
-          build_jetson_image
+      jetson_trt8_u2204)
+          echo "Start Building Docker image for Jetson TensorRT8 Ubuntu 2204 platform..."
+          build_jetson_trt8_u2204_image
+          ;;
+      jetson_trt8_u2004)
+          echo "Start Building Docker image for Jetson TensorRT8 Ubuntu 2004 platform..."
+          build_jetson_trt8_u2004_image
           ;;
       nvidia_gpu)
           echo "Start Building Docker image for nvidia_gpu platform..."
@@ -116,7 +134,10 @@ create_container() {
 
   EXTERNAL_TAG=""
   case $PLATFORM in
-      jetson)
+      jetson_trt8_u2204)
+          EXTERNAL_TAG="--runtime nvidia"
+          ;;
+      jetson_trt8_u2004)
           EXTERNAL_TAG="--runtime nvidia"
           ;;
       nvidia_gpu)
@@ -135,7 +156,7 @@ create_container() {
              -v /tmp/.X11-unix:/tmp/.X11-unix \
              --network host \
              --ipc host \
-             -v $(dirname "$(dirname "$(pwd)")"):/workspace \
+             -v ${parent_dir}:/workspace \
              -w /workspace \
              -v /dev/bus/usb:/dev/bus/usb \
              -e DISPLAY=${DISPLAY} \
