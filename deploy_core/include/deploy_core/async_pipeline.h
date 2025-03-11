@@ -153,6 +153,12 @@ public:
       return std::future<ResultType>();
     }
 
+    if (!map_name2instance_.at(pipeline_name).IsInitialized()) {
+      LOG(ERROR) << "[BaseAsyncPipeline] `PushPipeline` pipeline {" << pipeline_name
+                 << "} is not initilized !!!";
+      return std::future<ResultType>();
+    }
+
     map_index2result_[package_index_] = std::promise<ResultType>();
     auto ret                          = map_index2result_[package_index_].get_future();
 
