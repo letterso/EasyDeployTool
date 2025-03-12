@@ -18,6 +18,7 @@ set(source_file src/base_infer_core.cpp
                 src/base_detection.cpp
                 src/base_sam.cpp
                 src/base_stereo.cpp
+                src/base_mono_stereo.cpp
 )
 
 add_library(${PROJECT_NAME} SHARED ${source_file})   
