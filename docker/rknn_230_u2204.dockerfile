@@ -55,7 +55,7 @@ RUN cd /tmp/rknn-toolkit2-2.3.0/rknpu2/runtime/Linux/librknn_api/ && \
 
 # rknn-toolkit2 python package on arm64
 RUN apt-get install python3-pip -y && \
-  pip config set global.index-url https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple && \
+  # pip config set global.index-url https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple && \
   pip install pip --upgrade
 
 RUN cd /tmp/rknn-toolkit2-2.3.0/rknn-toolkit2/packages/arm64 && \
