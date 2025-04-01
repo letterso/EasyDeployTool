@@ -2,6 +2,7 @@
 
 IMAGE_BASE_NAME="easy_deploy_base_dev"
 BUILT_IMAGE_TAG=""
+EXTERNAL_TAG=""
 
 script_dir="$( cd "$(dirname "$0")" && pwd )"
 parent_dir="$( cd "$script_dir/../.." && pwd )"
@@ -9,29 +10,15 @@ parent_dir_name="$(basename "$parent_dir")"
 
 CONTAINER_NAME="easy_deploy_${parent_dir_name}"
 
-usage() {
-  echo "Usage: $0 --platform=<platform>"
-  echo "Available platforms: jetson_trt8_u2204, jetson_trt8_u2004, nvidia_gpu, rk3588"
-  exit 1
-}
-
-parse_args() {
-  if [ "$#" -ne 1 ]; then
-    usage
-  fi
-  # 解析参数
-  for i in "$@"; do
-      case $i in
-          --platform=*)
-              PLATFORM="${i#*=}"
-              shift
-              ;;
-          *)
-              usage
-              ;;
-      esac
-  done
-}
+BUILD_FUNCTIONS=(
+  nvidia_gpu_trt8_u2004
+  nvidia_gpu_trt8_u2204
+  nvidia_gpu_trt10_u2204
+  jetson_trt8_u2004
+  jetson_trt8_u2204
+  jetson_trt10_u2204
+  rknn_230_u2204
+)
 
 is_image_exist() {
   local name="$1"
@@ -52,103 +39,28 @@ is_container_exist() {
   fi
 }
 
-build_rk3588_image() {
-  BUILT_IMAGE_TAG=${IMAGE_BASE_NAME}:rknn_u2204
-  if is_image_exist ${BUILT_IMAGE_TAG}; then
-    echo Image: ${BUILT_IMAGE_TAG} exists! Skip image building process ...
-  else
-    docker build -f ${script_dir}/rknn_u2204.dockerfile -t ${BUILT_IMAGE_TAG} . 
-  fi
-}
-
-build_jetson_trt8_u2204_image() {
-  BUILT_IMAGE_TAG=${IMAGE_BASE_NAME}:jetson_tensorrt8_u2204
-  if is_image_exist ${BUILT_IMAGE_TAG}; then
-    echo Image: ${BUILT_IMAGE_TAG} exists! Skip image building process ...
-  else
-    docker build -f ${script_dir}/jetson_tensorrt_trt8_u2204.dockerfile -t ${BUILT_IMAGE_TAG} . 
-  fi
-}
-
-
-build_jetson_trt8_u2004_image() {
-  BUILT_IMAGE_TAG=${IMAGE_BASE_NAME}:jetson_tensorrt8_u2004
-  if is_image_exist ${BUILT_IMAGE_TAG}; then
-    echo Image: ${BUILT_IMAGE_TAG} exists! Skip image building process ...
-  else
-    docker build -f ${script_dir}/jetson_tensorrt_trt8_u2004.dockerfile -t ${BUILT_IMAGE_TAG} . 
-  fi
-}
-
-build_nvidia_gpu_image() {
-  BUILT_IMAGE_TAG=${IMAGE_BASE_NAME}:nvidia_gpu_tensorrt_u2204
-  if is_image_exist ${BUILT_IMAGE_TAG}; then
-    echo Image: ${BUILT_IMAGE_TAG} exists! Skip image building process ...
-  else
-    docker build -f ${script_dir}/nvidia_gpu_tensorrt_u2204.dockerfile -t ${BUILT_IMAGE_TAG} . 
-  fi
-}
-
 build_image() {
-  case $PLATFORM in
-      jetson_trt8_u2204)
-          echo "Start Building Docker image for Jetson TensorRT8 Ubuntu 2204 platform..."
-          build_jetson_trt8_u2204_image
-          ;;
-      jetson_trt8_u2004)
-          echo "Start Building Docker image for Jetson TensorRT8 Ubuntu 2004 platform..."
-          build_jetson_trt8_u2004_image
-          ;;
-      nvidia_gpu)
-          echo "Start Building Docker image for nvidia_gpu platform..."
-          build_nvidia_gpu_image
-          ;;
-      rk3588)
-          echo "Start Building Docker image for rk3588 platform..."
-          build_rk3588_image
-          ;;
-      *)
-          echo "Unknown platform: $PLATFORM"
-          usage
-          ;;
-  esac
-}
-
-add_user() {
-  echo Adding User: ${USER} into container
-   
+  local image_full_name="${IMAGE_BASE_NAME}:${BUILT_IMAGE_TAG}"
+  if is_image_exist ${image_full_name}; then
+    echo Image: ${image_full_name} exists! Skip image building process ...
+    return 1
+  else
+    docker build -f "${script_dir}/${DOCKER_FILE_NAME}" -t "${image_full_name}" .
+    return 0
+  fi
 }
 
 create_container() {
-  echo "Creating docker container ..."
-
-  if ! is_image_exist ${BUILT_IMAGE_TAG}; then
-    echo Image: ${BUILT_IMAGE_TAG} does not exist, quit creating ...
-    exit 1
+  local image_full_name="${IMAGE_BASE_NAME}:${BUILT_IMAGE_TAG}"
+  if ! is_image_exist ${image_full_name}; then
+    echo Image: ${image_full_name} does not exist, quit creating ...
+    return 1
   fi
 
   if is_container_exist ${CONTAINER_NAME}; then
     echo Container: ${CONTAINER_NAME} exists! Skip container building process ...
     return 0
   fi
-
-  EXTERNAL_TAG=""
-  case $PLATFORM in
-      jetson_trt8_u2204)
-          EXTERNAL_TAG="--runtime nvidia"
-          ;;
-      jetson_trt8_u2004)
-          EXTERNAL_TAG="--runtime nvidia"
-          ;;
-      nvidia_gpu)
-          EXTERNAL_TAG="--runtime nvidia"
-          ;;
-      rk3588)
-          
-          ;;
-      *)
-          ;;
-  esac
 
   docker run -itd --privileged \
              --device /dev/dri \
@@ -164,15 +76,84 @@ create_container() {
              -e USER=${USER} \
              --name ${CONTAINER_NAME} \
              ${EXTERNAL_TAG} \
-             ${BUILT_IMAGE_TAG} \
+             ${image_full_name} \
              /bin/bash
+  
+  return 0
 }
 
-parse_args "$@"
+wrap_function() {
+    local func_name=$1
 
-build_image
+    if ! declare -f "$func_name" >/dev/null; then
+        echo "错误：函数 $func_name 未定义"
+        return 1
+    fi
 
-create_container
+    local original_func=$(declare -f "$func_name")
 
-echo "EasyDeploy Base Dev Enviroment Built Successfully!!!"
-echo "Now Run into_docker.sh"
+    eval "
+        $func_name() {
+            $func_name-original \"\$@\"  # 原始函数
+            build_image \"\$@\"
+            create_container \"\$@\"
+        }
+    "
+
+    eval "${original_func/$func_name/$func_name-original}"
+}
+
+
+nvidia_gpu_trt8_u2004() {
+  BUILT_IMAGE_TAG=nvidia_gpu_tensorrt_trt8_u2004
+  DOCKER_FILE_NAME="nvidia_gpu_tensorrt_trt8_u2004.dockerfile"
+  EXTERNAL_TAG="--runtime nvidia"
+}
+
+nvidia_gpu_trt8_u2204() {
+  BUILT_IMAGE_TAG=nvidia_gpu_tensorrt_trt8_u2204
+  DOCKER_FILE_NAME="nvidia_gpu_tensorrt_trt8_u2204.dockerfile"
+  EXTERNAL_TAG="--runtime nvidia"
+}
+
+nvidia_gpu_trt10_u2204() {
+  BUILT_IMAGE_TAG=nvidia_gpu_tensorrt_trt10_u2204
+  DOCKER_FILE_NAME="nvidia_gpu_tensorrt_trt10_u2204.dockerfile"
+  EXTERNAL_TAG="--runtime nvidia"
+}
+
+jetson_trt8_u2004() {
+  BUILT_IMAGE_TAG=jetson_tensorrt_trt8_u2004
+  DOCKER_FILE_NAME="jetson_tensorrt_trt8_u2004.dockerfile"
+  EXTERNAL_TAG="--runtime nvidia"
+}
+
+jetson_trt8_u2204() {
+  BUILT_IMAGE_TAG=jetson_tensorrt_trt8_u2204
+  DOCKER_FILE_NAME="jetson_tensorrt_trt8_u2204.dockerfile"
+  EXTERNAL_TAG="--runtime nvidia"
+}
+
+jetson_trt10_u2204() {
+  BUILT_IMAGE_TAG=jetson_tensorrt_trt10_u2204
+  DOCKER_FILE_NAME="jetson_tensorrt_trt10_u2204.dockerfile"
+  EXTERNAL_TAG="--runtime nvidia"
+}
+
+rknn_230_u2204() {
+  BUILT_IMAGE_TAG=rknn_230_u2204
+  DOCKER_FILE_NAME="rknn_230_u2204.dockerfile"
+  EXTERNAL_TAG=""
+}
+
+register_with_base() {
+    for fname in "${BUILD_FUNCTIONS[@]}"; do
+        wrap_function "$fname"
+    done
+}
+register_with_base
+
+if [ $# -gt 0 ]; then
+  # 执行指定的函数
+  "$@"
+fi
