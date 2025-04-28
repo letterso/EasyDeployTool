@@ -148,19 +148,6 @@ public:
       LOG(ERROR) << "[TrtBlobBuffer] `SetBlobShape` Got invalid `blob_name`: " << blob_name;
       return false;
     }
-    const auto     &origin_shape      = map_blob_name2shape_[blob_name];
-    const long long ori_element_count = CumVector(origin_shape);
-    const long long dyn_element_count = CumVector(shape);
-    if (origin_shape.size() != shape.size() || dyn_element_count > ori_element_count ||
-        dyn_element_count < 0)
-    {
-      const std::string origin_shape_in_str = VisualVec(origin_shape);
-      const std::string shape_in_str        = VisualVec(shape);
-      LOG(ERROR) << "[TrtBlobBuffer] `SetBlobShape` Got invalid `shape` input. "
-                 << "`shape`: " << shape_in_str << "\t"
-                 << "`origin_shape`: " << origin_shape_in_str;
-      return false;
-    }
     map_blob_name2shape_[blob_name] = shape;
     return true;
   }
