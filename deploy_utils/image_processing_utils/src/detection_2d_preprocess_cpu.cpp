@@ -17,8 +17,7 @@ public:
                    bool                      do_norm      = true);
 
   float Preprocess(std::shared_ptr<async_pipeline::IPipelineImageData> input_image_data,
-                   std::shared_ptr<inference_core::IBlobsBuffer>       blob_buffer,
-                   const std::string                                  &blob_name,
+                   inference_core::ITensor                            *tensor,
                    int                                                 dst_height,
                    int                                                 dst_width) override;
 
@@ -42,17 +41,13 @@ DetPreProcessCPU::DetPreProcessCPU(const std::vector<float> &mean,
 
 float DetPreProcessCPU::Preprocess(
     std::shared_ptr<async_pipeline::IPipelineImageData> input_image_data,
-    std::shared_ptr<inference_core::IBlobsBuffer>       blob_buffer,
-    const std::string                                  &blob_name,
+    inference_core::ITensor                            *tensor,
     int                                                 dst_height,
     int                                                 dst_width)
 {
   // 0. Make sure read/write on the host-side memory buffer
-  blob_buffer->SetBlobBuffer(blob_name, DataLocation::HOST);
-  auto _dst_ptr = blob_buffer->GetOuterBlobBuffer(blob_name);
-
-  // 1. Caculate transform factor
-  float      *dst_ptr         = static_cast<float *>(_dst_ptr.first);
+  tensor->SetBufferLocation(DataLocation::HOST);
+  float      *dst_ptr         = tensor->Cast<float>();
   const auto &image_data_info = input_image_data->GetImageDataInfo();
   const int   image_height    = image_data_info.image_height;
   const int   image_width     = image_data_info.image_width;
