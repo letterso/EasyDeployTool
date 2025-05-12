@@ -29,6 +29,14 @@ public:
   }
 };
 
+static const std::unordered_map<nvinfer1::DataType, size_t> map_tensor_type_byte_size_{
+    {nvinfer1::DataType::kFLOAT, 4},
+    {nvinfer1::DataType::kINT32, 4},
+#if NV_TENSORRT_MAJOR >= 10
+    {nvinfer1::DataType::kINT64, 8},
+#endif
+};
+
 /**
  * @brief `TrtInferCore` is derived from `BaseInferCore` and override the abstract methods
  * of `BaseInferCore`. It wraps tensorrt engine loading and inference process.
@@ -59,18 +67,18 @@ public:
    * @param blobs_shape Mapping of blob_name and blob_shape.
    * @param mem_buf_size Size of buffer pool.
    */
-  TrtInferCore(const std::string                                            engine_path,
-               const std::unordered_map<std::string, std::vector<int64_t>> &blobs_shape,
-               const int                                                    mem_buf_size = 5);
+  TrtInferCore(const std::string                                             engine_path,
+               const std::unordered_map<std::string, std::vector<uint64_t>> &blobs_shape,
+               const int                                                     mem_buf_size = 5);
 
   /**
    * @brief Overrided from `BaseInferCore`, construct a instance of `TrtBlobBuffer` and return
    * the shared ptr of it. It is used by mem buffer pool in `BaseInferCore`, or users who wants
    * to alloc a brand new buffer.
    *
-   * @return std::shared_ptr<IBlobsBuffer>
+   * @return std::unique_ptr<BlobsTensor>
    */
-  std::shared_ptr<IBlobsBuffer> AllocBlobsBuffer() override;
+  std::unique_ptr<BlobsTensor> AllocBlobsBuffer() override;
 
   /**
    * @brief Overrided from `BaseInferCore`. The `PreProcess` stage of tensorrt inference. It
@@ -116,7 +124,7 @@ private:
    *
    * @param blobs_shape
    */
-  void ResolveModelInformation(std::unordered_map<std::string, std::vector<int64_t>> &blobs_shape);
+  void ResolveModelInformation(std::unordered_map<std::string, std::vector<uint64_t>> &blobs_shape);
 
 private:
   // some members related to tensorrt
@@ -138,10 +146,7 @@ private:
   cudaStream_t preproces_stream_, inference_stream_, postprocess_stream_;
 
   // some model information mapping
-  std::unordered_map<std::string, std::vector<int64_t>> map_blob_name2shape_;
-  std::unordered_map<std::string, int>                  map_input_blob_name2index_;
-  std::unordered_map<std::string, int>                  map_output_blob_name2index_;
-  std::unordered_map<std::string, size_t>               map_blob_name2size_;
+  std::unordered_map<std::string, std::vector<size_t>> map_blob_name2shape_;
 };
 
 TrtInferCore::TrtInferCore(std::string engine_path, const int mem_buf_size)
@@ -156,9 +161,10 @@ TrtInferCore::TrtInferCore(std::string engine_path, const int mem_buf_size)
   cudaStreamCreate(&postprocess_stream_);
 }
 
-TrtInferCore::TrtInferCore(const std::string                                            engine_path,
-                           const std::unordered_map<std::string, std::vector<int64_t>> &blobs_shape,
-                           const int mem_buf_size)
+TrtInferCore::TrtInferCore(
+    const std::string                                             engine_path,
+    const std::unordered_map<std::string, std::vector<uint64_t>> &blobs_shape,
+    const int                                                     mem_buf_size)
 {
   LoadEngine(engine_path);
   map_blob_name2shape_ = blobs_shape;
@@ -179,7 +185,7 @@ TrtInferCore::~TrtInferCore()
 void TrtInferCore::LoadEngine(const std::string &engine_path)
 {
   initLibNvInferPlugins(nullptr, "");
-  
+
   std::ifstream file(engine_path, std::ios::binary);
   if (!file.good())
   {
@@ -209,7 +215,7 @@ void TrtInferCore::LoadEngine(const std::string &engine_path)
 }
 
 void TrtInferCore::ResolveModelInformation(
-    std::unordered_map<std::string, std::vector<int64_t>> &blobs_shape)
+    std::unordered_map<std::string, std::vector<uint64_t>> &blobs_shape)
 {
   const int blob_number = engine_->getNbIOTensors();
   LOG(INFO) << "[TrtInferCore] model has " << blob_number << " blobs";
@@ -223,17 +229,10 @@ void TrtInferCore::ResolveModelInformation(
     nvinfer1::Dims dim       = engine_->getTensorShape(blob_name);
 
     const std::string s_blob_name(blob_name);
-    if (engine_->getTensorIOMode(blob_name) == nvinfer1::TensorIOMode::kINPUT)
-    {
-      map_input_blob_name2index_.emplace(s_blob_name, i);
-    } else
-    {
-      map_output_blob_name2index_.emplace(s_blob_name, i);
-    }
 
     if (resolve_blob_shape)
     {
-      blobs_shape[s_blob_name] = std::vector<int64_t>();
+      blobs_shape[s_blob_name] = std::vector<uint64_t>();
       for (int j = 0; j < dim.nbDims; ++j)
       {
         // 检查是否包含动态shape，自动解析暂不支持动态shape
@@ -252,106 +251,76 @@ void TrtInferCore::ResolveModelInformation(
       }
       LOG(INFO) << "[TrtInferCore] blob name : " << blob_name << " dims : " << s_dim;
     }
-
-    size_t blob_byte_size = sizeof(float);
-    if (blobs_shape.find(s_blob_name) == blobs_shape.end())
-    {
-      throw std::runtime_error("[TrtInferCore] blob name: " + s_blob_name +
-                               " not found in provided blobs_shape map !!!");
-    }
-    for (const int64_t d : blobs_shape[s_blob_name])
-    {
-      blob_byte_size *= d;
-    }
-
-    map_blob_name2size_[s_blob_name] = blob_byte_size;
   }
 }
 
-std::shared_ptr<IBlobsBuffer> TrtInferCore::AllocBlobsBuffer()
+std::unique_ptr<BlobsTensor> TrtInferCore::AllocBlobsBuffer()
 {
-  auto ret = std::make_shared<TrtBlobBuffer>();
+  std::unordered_map<std::string, std::unique_ptr<ITensor>> tensor_map;
 
   const int blob_number = engine_->getNbIOTensors();
-  CHECK(blob_number >= 2);
-  ret->device_blobs_buffer_.resize(blob_number);
-  ret->host_blobs_buffer_.resize(blob_number);
 
   for (int i = 0; i < blob_number; ++i)
   {
-    const std::string s_blob_name    = engine_->getIOTensorName(i);
-    int64_t           blob_byte_size = sizeof(float);
-    const auto       &blob_shape     = map_blob_name2shape_[s_blob_name];
-    for (const int64_t d : blob_shape)
-    {
-      blob_byte_size *= d;
-    }
+    auto tensor = std::make_unique<TrtTensor>();
+
+    const std::string s_blob_name      = engine_->getIOTensorName(i);
+    const auto       &blob_shape       = map_blob_name2shape_[s_blob_name];
+    auto              tensor_data_type = engine_->getTensorDataType(s_blob_name.c_str());
+    CHECK_STATE_THROW(
+        map_tensor_type_byte_size_.find(tensor_data_type) != map_tensor_type_byte_size_.end(),
+        "[trt_core] Got unknown tensor data type: " +
+            std::to_string(static_cast<int32_t>(tensor_data_type)));
+    size_t blob_byte_size = map_tensor_type_byte_size_.at(tensor_data_type) * CumVector(blob_shape);
+
+    tensor->current_shape_         = blob_shape;
+    tensor->default_shape_         = blob_shape;
+    tensor->byte_size_per_element_ = map_tensor_type_byte_size_.at(tensor_data_type);
 
     // alloc buffer memory
     // on device
-    CHECK(cudaMalloc(&ret->device_blobs_buffer_[i], blob_byte_size) == cudaSuccess);
-    CHECK(cudaMemset(ret->device_blobs_buffer_[i], 0, blob_byte_size) == cudaSuccess);
-    CHECK(cudaDeviceSynchronize() == cudaSuccess);
+    cudaMalloc(&tensor->buffer_on_device_, blob_byte_size);
+    cudaMemset(tensor->buffer_on_device_, 0, blob_byte_size);
+    tensor->self_maintain_buffer_device_ =
+        std::unique_ptr<void, CudaMemoryDeleter<void>>(tensor->buffer_on_device_);
     // on host
-    ret->host_blobs_buffer_[i] = new u_char[blob_byte_size];
+    tensor->self_maintain_buffer_host_ = std::make_unique<u_char[]>(blob_byte_size);
+    tensor->buffer_on_host_            = tensor->self_maintain_buffer_host_.get();
 
-    // maintain buffer ptr
-    ret->outer_map_blob2ptr_.emplace(s_blob_name,
-                                     std::pair{ret->host_blobs_buffer_[i], DataLocation::HOST});
-    // mapping blob_name and buffer_ptr
-    ret->inner_map_device_blob2ptr_.emplace(s_blob_name, ret->device_blobs_buffer_[i]);
-    ret->inner_map_host_blob2ptr_.emplace(s_blob_name, ret->host_blobs_buffer_[i]);
-
-    // mapping blob_name and default blob_shape
-    ret->map_blob_name2shape_.emplace(s_blob_name, blob_shape);
+    tensor_map.emplace(s_blob_name, std::move(tensor));
   }
 
-  // initialize the buffer ptr vector which will be used when tensorrt engine do inference.
-  ret->buffer_input_core_ = ret->device_blobs_buffer_;
-
-  return ret;
+  return std::make_unique<BlobsTensor>(std::move(tensor_map));
 }
 
-bool TrtInferCore::PreProcess(std::shared_ptr<async_pipeline::IPipelinePackage> buffer)
+bool TrtInferCore::PreProcess(std::shared_ptr<async_pipeline::IPipelinePackage> pipeline_unit)
 {
-  CHECK_STATE(buffer != nullptr, "[TrtInferCore] PreProcess got WRONG input data format!");
-  auto p_buf = std::dynamic_pointer_cast<TrtBlobBuffer>(buffer->GetInferBuffer());
-  CHECK_STATE(p_buf != nullptr, "[TrtInferCore] PreProcess got WRONG p_buf data format!");
+  CHECK_STATE(pipeline_unit != nullptr, "[TrtInferCore] PreProcess got invalid pipeline_unit!");
+  auto blobs_tensor = pipeline_unit->GetInferBuffer();
+  CHECK_STATE(blobs_tensor != nullptr, "[TrtInferCore] PreProcess got invalid blobs_tensor!");
 
-  // Set the input buffer data
-  for (const auto &p_name_index : map_input_blob_name2index_)
+  const int blob_number = engine_->getNbIOTensors();
+
+  for (int i = 0; i < blob_number; ++i)
   {
-    const std::string &s_blob_name = p_name_index.first;
-    const int          index       = p_name_index.second;
+    const std::string s_blob_name = engine_->getIOTensorName(i);
 
-    // Get the customed blob buffer data information, including data ptr and location.
-    const auto &p_ptr_loc = p_buf->GetOuterBlobBuffer(s_blob_name);
-    // Transport buffer data from host to device, if the customed blob data is on host.
-    if (p_ptr_loc.second == DataLocation::HOST)
+    auto tensor = dynamic_cast<TrtTensor *>(blobs_tensor->GetTensor(s_blob_name));
+    CHECK_STATE(tensor != nullptr, "[trt_core] PreProcess got invalid tensor : " + s_blob_name);
+
+    if (tensor->current_location_ == DataLocation::HOST &&
+        engine_->getTensorIOMode(s_blob_name.c_str()) == nvinfer1::TensorIOMode::kINPUT)
     {
-      p_buf->buffer_input_core_[index] = p_buf->inner_map_device_blob2ptr_[s_blob_name];
-      cudaMemcpyAsync(p_buf->buffer_input_core_[index], p_ptr_loc.first,
-                      map_blob_name2size_[s_blob_name], cudaMemcpyHostToDevice, preproces_stream_);
-    } else
-    {
-      p_buf->buffer_input_core_[index] = p_ptr_loc.first;
+      cudaMemcpyAsync(tensor->buffer_on_device_, tensor->buffer_on_host_,
+                      tensor->GetTensorByteSize(), cudaMemcpyHostToDevice, preproces_stream_);
     }
   }
-
-  // Set the output buffer data ptr. Allways use inner pre-allocated device buffer.
-  for (const auto &p_name_index : map_output_blob_name2index_)
-  {
-    const std::string &s_blob_name   = p_name_index.first;
-    const int          index         = p_name_index.second;
-    p_buf->buffer_input_core_[index] = p_buf->inner_map_device_blob2ptr_[s_blob_name];
-  }
-
   cudaStreamSynchronize(preproces_stream_);
 
   return true;
 }
 
-bool TrtInferCore::Inference(std::shared_ptr<async_pipeline::IPipelinePackage> buffer)
+bool TrtInferCore::Inference(std::shared_ptr<async_pipeline::IPipelinePackage> pipeline_unit)
 {
   // Create tensorrt context if this is the first time execution of this thread.
   std::thread::id cur_thread_id = std::this_thread::get_id();
@@ -366,82 +335,63 @@ bool TrtInferCore::Inference(std::shared_ptr<async_pipeline::IPipelinePackage> b
   auto context = s_map_tid2context_[cur_thread_id];
 
   // Get buffer ptr
-  CHECK_STATE(buffer != nullptr, "[TrtInferCore] PreProcess got WRONG input data format!");
-  auto p_buf = std::dynamic_pointer_cast<TrtBlobBuffer>(buffer->GetInferBuffer());
-  CHECK_STATE(p_buf != nullptr, "[TrtInferCore] PreProcess got WRONG p_buf data format!");
+  CHECK_STATE(pipeline_unit != nullptr, "[TrtInferCore] Inference got invalid pipeline_unit!");
+  auto blobs_tensor = pipeline_unit->GetInferBuffer();
+  CHECK_STATE(blobs_tensor != nullptr, "[TrtInferCore] Inference got invalid blobs_tensor!");
 
-  TrtBlobBuffer &buf = *p_buf;
+  const int blob_number = engine_->getNbIOTensors();
 
-  // Set dynamic blob shape
-  for (const auto &p_name_shape : buf.map_blob_name2shape_)
+  for (int i = 0; i < blob_number; ++i)
   {
-    const auto &s_blob_name = p_name_shape.first;
-    const auto &v_shape     = p_name_shape.second;
+    const std::string s_blob_name = engine_->getIOTensorName(i);
 
-    if (engine_->getTensorIOMode(s_blob_name.c_str()) != nvinfer1::TensorIOMode::kINPUT)
+    auto tensor = dynamic_cast<TrtTensor *>(blobs_tensor->GetTensor(s_blob_name));
+    CHECK_STATE(tensor != nullptr, "[trt_core] Inference got invalid tensor : " + s_blob_name);
+
+    context->setTensorAddress(s_blob_name.c_str(), tensor->buffer_on_device_);
+
+    if (engine_->getTensorIOMode(s_blob_name.c_str()) == nvinfer1::TensorIOMode::kINPUT)
     {
-      continue;
-    }
+      const auto &tensor_shape = tensor->current_shape_;
 
-    nvinfer1::Dims dynamic_dim;
-    dynamic_dim.nbDims = v_shape.size();
-    for (size_t i = 0; i < v_shape.size(); ++i)
-    {
-      dynamic_dim.d[i] = v_shape[i];
+      nvinfer1::Dims dynamic_dim;
+      dynamic_dim.nbDims = tensor_shape.size();
+      for (size_t i = 0; i < tensor_shape.size(); ++i)
+      {
+        dynamic_dim.d[i] = tensor_shape[i];
+      }
+      CHECK_STATE(context->setInputShape(s_blob_name.c_str(), dynamic_dim),
+                  "[TrtInferCore] Inference execute `context->setInputShape` failed!!!");
     }
-    CHECK_STATE(context->setInputShape(s_blob_name.c_str(), dynamic_dim),
-                "[TrtInferCore] Inference execute `context->setInputShape` failed!!!");
-  }
-
-#if NV_TENSORRT_MAJOR == 10
-  for (const auto &p_name_index : map_input_blob_name2index_)
-  {
-    const std::string &s_blob_name   = p_name_index.first;
-    const int          index         = p_name_index.second;
-    context->setTensorAddress(s_blob_name.c_str(), buf.buffer_input_core_[index]);
-  }
-  for (const auto &p_name_index : map_output_blob_name2index_)
-  {
-    const std::string &s_blob_name   = p_name_index.first;
-    const int          index         = p_name_index.second;
-    context->setTensorAddress(s_blob_name.c_str(), buf.buffer_input_core_[index]);
   }
   context->enqueueV3(inference_stream_);
-
-#else
-  // Do inference use `buf.buffer_input_core_` which is prepared by `PreProcess` stage.
-  CHECK_STATE(context->enqueueV2(buf.buffer_input_core_.data(), inference_stream_, nullptr),
-              "[TrtInferCore] Inference execute `context->enqueueV2` failed!!!");
-#endif
 
   cudaStreamSynchronize(inference_stream_);
   return true;
 }
 
-bool TrtInferCore::PostProcess(std::shared_ptr<async_pipeline::IPipelinePackage> buffer)
+bool TrtInferCore::PostProcess(std::shared_ptr<async_pipeline::IPipelinePackage> pipeline_unit)
 {
-  CHECK_STATE(buffer != nullptr, "[TrtInferCore] PreProcess got WRONG input data format!");
-  auto p_buf = std::dynamic_pointer_cast<TrtBlobBuffer>(buffer->GetInferBuffer());
-  CHECK_STATE(p_buf != nullptr, "[TrtInferCore] PreProcess got WRONG p_buf data format!");
+  CHECK_STATE(pipeline_unit != nullptr, "[TrtInferCore] PostProcess got invalid pipeline_unit!");
+  auto blobs_tensor = pipeline_unit->GetInferBuffer();
+  CHECK_STATE(blobs_tensor != nullptr, "[TrtInferCore] PostProcess got invalid blobs_tensor!");
 
-  for (const auto &p_name_index : map_output_blob_name2index_)
+  const int blob_number = engine_->getNbIOTensors();
+
+  for (int i = 0; i < blob_number; ++i)
   {
-    const std::string &s_blob_name = p_name_index.first;
-    const int          index       = p_name_index.second;
-    const auto        &p_ptr_loc   = p_buf->GetOuterBlobBuffer(s_blob_name);
-    // Transport output buffer from device to host, if user needs host readable data.
-    if (p_ptr_loc.second == DataLocation::HOST)
+    const std::string s_blob_name = engine_->getIOTensorName(i);
+
+    auto tensor = dynamic_cast<TrtTensor *>(blobs_tensor->GetTensor(s_blob_name));
+    CHECK_STATE(tensor != nullptr, "[trt_core] PostProcess got invalid tensor : " + s_blob_name);
+
+    if (engine_->getTensorIOMode(s_blob_name.c_str()) == nvinfer1::TensorIOMode::kINPUT)
+      continue;
+
+    if (tensor->current_location_ == DataLocation::HOST)
     {
-      cudaMemcpyAsync(p_ptr_loc.first, p_buf->buffer_input_core_[index],
-                      map_blob_name2size_[s_blob_name], cudaMemcpyDeviceToHost,
-                      postprocess_stream_);
-    }
-    // Transport output buffer from local device buffer to given device buffer.
-    else if (p_ptr_loc.first != p_buf->buffer_input_core_[index])
-    {
-      cudaMemcpyAsync(p_ptr_loc.first, p_buf->buffer_input_core_[index],
-                      map_blob_name2size_[s_blob_name], cudaMemcpyDeviceToDevice,
-                      postprocess_stream_);
+      cudaMemcpyAsync(tensor->buffer_on_host_, tensor->buffer_on_device_,
+                      tensor->GetTensorByteSize(), cudaMemcpyDeviceToHost, postprocess_stream_);
     }
   }
 
@@ -469,10 +419,10 @@ std::shared_ptr<BaseInferCore> CreateTrtInferCore(std::string model_path, const 
 }
 
 std::shared_ptr<BaseInferCore> CreateTrtInferCore(
-    std::string                                                  model_path,
-    const std::unordered_map<std::string, std::vector<int64_t>> &input_blobs_shape,
-    const std::unordered_map<std::string, std::vector<int64_t>> &output_blobs_shape,
-    const int                                                    mem_buf_size)
+    std::string                                                   model_path,
+    const std::unordered_map<std::string, std::vector<uint64_t>> &input_blobs_shape,
+    const std::unordered_map<std::string, std::vector<uint64_t>> &output_blobs_shape,
+    const int                                                     mem_buf_size)
 {
   if (!FileSuffixCheck(model_path, ".engine"))
   {
@@ -480,7 +430,7 @@ std::shared_ptr<BaseInferCore> CreateTrtInferCore(
                                 model_path + " instead");
   }
 
-  std::unordered_map<std::string, std::vector<int64_t>> blobs_shape;
+  std::unordered_map<std::string, std::vector<uint64_t>> blobs_shape;
   for (const auto &p : input_blobs_shape)
   {
     blobs_shape.insert(p);

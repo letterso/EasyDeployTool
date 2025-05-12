@@ -11,8 +11,8 @@ namespace inference_core {
 
 struct TrtInferCoreParams {
   std::string                                           model_path;
-  std::unordered_map<std::string, std::vector<int64_t>> input_blobs_shape;
-  std::unordered_map<std::string, std::vector<int64_t>> output_blobs_shape;
+  std::unordered_map<std::string, std::vector<uint64_t>> input_blobs_shape;
+  std::unordered_map<std::string, std::vector<uint64_t>> output_blobs_shape;
   int                                                   mem_buf_size;
 };
 
@@ -33,8 +33,8 @@ private:
 
 std::shared_ptr<BaseInferCoreFactory> CreateTrtInferCoreFactory(
     std::string                                                  model_path,
-    const std::unordered_map<std::string, std::vector<int64_t>> &input_blobs_shape,
-    const std::unordered_map<std::string, std::vector<int64_t>> &output_blobs_shape,
+    const std::unordered_map<std::string, std::vector<uint64_t>> &input_blobs_shape,
+    const std::unordered_map<std::string, std::vector<uint64_t>> &output_blobs_shape,
     const int                                                    mem_buf_size)
 {
   TrtInferCoreParams params;
