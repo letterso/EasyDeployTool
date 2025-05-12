@@ -56,9 +56,9 @@ public:
    * which will be used to deploy inference. Case the algorithm may need multiple inference
    * core and multiple blobs buffer to complete the whole processing.
    *
-   * @return std::shared_ptr<IBlobsBuffer>
+   * @return inference_core::BlobsTensor*
    */
-  virtual std::shared_ptr<inference_core::IBlobsBuffer> GetInferBuffer() = 0;
+  virtual inference_core::BlobsTensor* GetInferBuffer() = 0;
 
 protected:
   virtual ~IPipelinePackage() = default;

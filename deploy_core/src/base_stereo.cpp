@@ -38,7 +38,7 @@ bool BaseStereoMatchingModel::ComputeDisp(const cv::Mat &left_image,
   MESSURE_DURATION_AND_CHECK_STATE(
       PreProcess(package), "[BaseStereoMatchingModel] `ComputeDisp` Failed execute PreProcess !!!");
   MESSURE_DURATION_AND_CHECK_STATE(
-      inference_core_->SyncInfer(package->infer_buffer),
+      inference_core_->SyncInfer(package->infer_buffer.get()),
       "[BaseStereoMatchingModel] `ComputeDisp` Failed execute inference sync infer !!!");
   MESSURE_DURATION_AND_CHECK_STATE(
       PostProcess(package),

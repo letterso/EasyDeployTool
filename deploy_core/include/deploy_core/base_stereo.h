@@ -28,16 +28,16 @@ struct StereoPipelinePackage : public async_pipeline::IPipelinePackage {
   cv::Mat disp;
 
   // maintain the blobs buffer instance
-  std::shared_ptr<inference_core::IBlobsBuffer> infer_buffer;
+  std::shared_ptr<inference_core::BlobsTensor> infer_buffer;
 
   // override from `IPipelinePakcage`, to provide the blobs buffer to inference_core
-  std::shared_ptr<inference_core::IBlobsBuffer> GetInferBuffer() override
+  inference_core::BlobsTensor* GetInferBuffer() override
   {
     if (infer_buffer == nullptr)
     {
       LOG(ERROR) << "[DetectionPipelinePackage] returned nullptr of infer_buffer!!!";
     }
-    return infer_buffer;
+    return infer_buffer.get();
   }
 };
 
@@ -96,16 +96,16 @@ struct MonoStereoPipelinePackage : public async_pipeline::IPipelinePackage {
   cv::Mat depth;
 
   // maintain the blobs buffer instance
-  std::shared_ptr<inference_core::IBlobsBuffer> infer_buffer;
+  std::shared_ptr<inference_core::BlobsTensor> infer_buffer;
 
   // override from `IPipelinePakcage`, to provide the blobs buffer to inference_core
-  std::shared_ptr<inference_core::IBlobsBuffer> GetInferBuffer() override
+  inference_core::BlobsTensor* GetInferBuffer() override
   {
     if (infer_buffer == nullptr)
     {
       LOG(ERROR) << "[MonoStereoPipelinePackage] returned nullptr of infer_buffer!!!";
     }
-    return infer_buffer;
+    return infer_buffer.get();
   }
 };
 

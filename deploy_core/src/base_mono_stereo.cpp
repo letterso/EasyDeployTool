@@ -36,7 +36,7 @@ bool BaseMonoStereoModel::ComputeDepth(const cv::Mat &input_image,
   MESSURE_DURATION_AND_CHECK_STATE(
       PreProcess(package), "[BaseMonoStereoModel] `ComputeDisp` Failed execute PreProcess !!!");
   MESSURE_DURATION_AND_CHECK_STATE(
-      inference_core_->SyncInfer(package->infer_buffer),
+      inference_core_->SyncInfer(package->infer_buffer.get()),
       "[BaseMonoStereoModel] `ComputeDisp` Failed execute inference sync infer !!!");
   MESSURE_DURATION_AND_CHECK_STATE(
       PostProcess(package),

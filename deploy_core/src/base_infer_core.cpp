@@ -12,11 +12,11 @@ namespace inference_core {
 // used in sync infer
 struct _InnerSyncInferPackage : public async_pipeline::IPipelinePackage {
 public:
-  std::shared_ptr<IBlobsBuffer> GetInferBuffer() override
+  BlobsTensor* GetInferBuffer() override
   {
     return buffer;
   }
-  std::shared_ptr<IBlobsBuffer> buffer;
+  BlobsTensor* buffer;
 };
 
 BaseInferCore::BaseInferCore()
@@ -30,17 +30,17 @@ BaseInferCore::BaseInferCore()
   ConfigPipeline("InferCore Pipieline", {preprocess_block, inference_block, postprocess_block});
 }
 
-bool BaseInferCore::SyncInfer(std::shared_ptr<IBlobsBuffer> buffer, const int batch_size)
+bool BaseInferCore::SyncInfer(BlobsTensor* tensors, const int batch_size)
 {
   auto inner_package    = std::make_shared<_InnerSyncInferPackage>();
-  inner_package->buffer = buffer;
+  inner_package->buffer = tensors;
   CHECK_STATE(PreProcess(inner_package), "[BaseInferCore] SyncInfer Preprocess Failed!!!");
   CHECK_STATE(Inference(inner_package), "[BaseInferCore] SyncInfer Inference Failed!!!");
   CHECK_STATE(PostProcess(inner_package), "[BaseInferCore] SyncInfer PostProcess Failed!!!");
   return true;
 }
 
-std::shared_ptr<IBlobsBuffer> BaseInferCore::GetBuffer(bool block)
+std::shared_ptr<BlobsTensor> BaseInferCore::GetBuffer(bool block)
 {
   return mem_buf_pool_->Alloc(block);
 }

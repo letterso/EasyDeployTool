@@ -21,9 +21,9 @@ namespace sam {
  */
 struct SamPipelinePackage : public async_pipeline::IPipelinePackage {
   // maintain image-encoder's blobs buffer
-  std::shared_ptr<inference_core::IBlobsBuffer> image_encoder_blobs_buffer;
+  std::shared_ptr<inference_core::BlobsTensor> image_encoder_blobs_buffer;
   // maintain mask-decoder's blobs buffer
-  std::shared_ptr<inference_core::IBlobsBuffer> mask_decoder_blobs_buffer;
+  std::shared_ptr<inference_core::BlobsTensor> mask_decoder_blobs_buffer;
 
   // the wrapped pipeline image data
   std::shared_ptr<async_pipeline::IPipelineImageData> input_image_data;
@@ -39,8 +39,8 @@ struct SamPipelinePackage : public async_pipeline::IPipelinePackage {
   cv::Mat mask;
 
   // the blobs buffer used in inference core processing
-  std::shared_ptr<inference_core::IBlobsBuffer> infer_buffer;
-  std::shared_ptr<inference_core::IBlobsBuffer> GetInferBuffer() override
+  inference_core::BlobsTensor* infer_buffer;
+  inference_core::BlobsTensor* GetInferBuffer() override
   {
     return infer_buffer;
   }

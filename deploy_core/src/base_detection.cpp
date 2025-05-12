@@ -26,7 +26,7 @@ static std::shared_ptr<DetectionPipelinePackage> CreateDetectionPipelineUnit(
     const cv::Mat                &input_image,
     float                         conf_thresh,
     bool                          isRGB,
-    std::shared_ptr<inference_core::IBlobsBuffer> blob_buffers)
+    std::shared_ptr<inference_core::BlobsTensor> blob_buffers)
 {
   // 1. construct the image wrapper
   auto image_wrapper = std::make_shared<PipelineCvImageWrapper>(input_image, isRGB);
@@ -67,22 +67,22 @@ bool BaseDetectionModel::Detect(const cv::Mat       &input_image,
                                 bool                 isRGB) noexcept
 {
   // 1. Get blobs buffer
-  auto blob_buffers = infer_core_->GetBuffer(false);
-  if (blob_buffers == nullptr)
+  auto blobs_tensor = infer_core_->GetBuffer(false);
+  if (blobs_tensor == nullptr)
   {
     LOG(ERROR) << "[BaseDetectionModel] Inference Core run out buffer!!!";
     return false;
   }
 
   // 2. Create a dummy pipeline package
-  auto package = CreateDetectionPipelineUnit(input_image, conf_thresh, isRGB, blob_buffers);
+  auto package = CreateDetectionPipelineUnit(input_image, conf_thresh, isRGB, blobs_tensor);
 
   // 3. preprocess by derived class
   MESSURE_DURATION_AND_CHECK_STATE(PreProcess(package),
                                    "[BaseDetectionModel] Preprocess execute failed!!!");
 
   // 4. network inference
-  MESSURE_DURATION_AND_CHECK_STATE(infer_core_->SyncInfer(blob_buffers),
+  MESSURE_DURATION_AND_CHECK_STATE(infer_core_->SyncInfer(blobs_tensor.get()),
                                    "[BaseDetectionModel] SyncInfer execute failed!!!");
 
   // 5. postprocess by derived class
