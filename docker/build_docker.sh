@@ -25,7 +25,7 @@ is_image_exist() {
   if docker images --filter "reference=$name" \
                    --format "{{.Repository}}:{{.Tag}}" | grep -q "$name"; then
     return 0
-  else 
+  else
     return 1
   fi
 }
@@ -78,7 +78,7 @@ create_container() {
              ${EXTERNAL_TAG} \
              ${image_full_name} \
              /bin/bash
-  
+
   return 0
 }
 

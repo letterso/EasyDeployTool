@@ -39,8 +39,8 @@ struct SamPipelinePackage : public async_pipeline::IPipelinePackage {
   cv::Mat mask;
 
   // the blobs buffer used in inference core processing
-  inference_core::BlobsTensor* infer_buffer;
-  inference_core::BlobsTensor* GetInferBuffer() override
+  inference_core::BlobsTensor *infer_buffer;
+  inference_core::BlobsTensor *GetInferBuffer() override
   {
     return infer_buffer;
   }
@@ -253,10 +253,9 @@ protected:
   const std::string model_name_;
 };
 
-
 /**
  * @brief Abstract factory base class of Sam model.
- * 
+ *
  */
 class BaseSamFactory {
 public:

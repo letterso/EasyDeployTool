@@ -69,7 +69,8 @@ public:
 
   ITensor *GetTensor(const std::string &blob_name)
   {
-    if (tensor_map_.find(blob_name) == tensor_map_.end()) {
+    if (tensor_map_.find(blob_name) == tensor_map_.end())
+    {
       throw std::runtime_error("[BlobsTensor] Tensor NOT found : " + blob_name);
     }
     return tensor_map_.at(blob_name).get();

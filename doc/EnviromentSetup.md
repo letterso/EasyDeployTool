@@ -1,6 +1,6 @@
 # EasyDeploy Enviroment Setup
 
-We use docker to setup enviroment. 
+We use docker to setup enviroment.
 
 ## Scripts
 
@@ -24,7 +24,7 @@ We use docker to setup enviroment.
 
 - On `jetson` platform, `docker` is pre-installed with jetpack. There is no need to install docker again.
 
-- On `nvidia_gpu` platform, `nvidia-container-runtime` is needed by docker to use gpu and cuda. Please make sure it is installed and configured with docker daemon. 
+- On `nvidia_gpu` platform, `nvidia-container-runtime` is needed by docker to use gpu and cuda. Please make sure it is installed and configured with docker daemon.
     ```bash
     cat /etc/docker/daemon.json
     # `nvidia` should be in runtimes list

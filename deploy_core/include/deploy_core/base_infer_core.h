@@ -196,7 +196,7 @@ public:
    * @return true
    * @return false
    */
-  bool SyncInfer(BlobsTensor* tensors, const int batch_size = 1);
+  bool SyncInfer(BlobsTensor *tensors, const int batch_size = 1);
 
   /**
    * @brief Get the pre-allocated blobs buffer shared pointer. The returned pointer is a

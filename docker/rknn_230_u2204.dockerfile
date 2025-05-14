@@ -1,4 +1,4 @@
-FROM ubuntu:22.04 
+FROM ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -29,7 +29,7 @@ RUN apt-get install -y \
   libxmlsec1-dev \
   libffi-dev \
   mecab-ipadic-utf8 \
-  sudo 
+  sudo
 
 RUN apt-get install -y \
   cmake \

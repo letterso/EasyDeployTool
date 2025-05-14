@@ -24,16 +24,16 @@ namespace inference_core {
  * @param mem_buf_size Size of buffer pool.
  */
 std::shared_ptr<BaseInferCore> CreateTrtInferCore(
-    std::string                                                  model_path,
+    std::string                                                   model_path,
     const std::unordered_map<std::string, std::vector<uint64_t>> &input_blobs_shape  = {},
     const std::unordered_map<std::string, std::vector<uint64_t>> &output_blobs_shape = {},
-    const int                                                    mem_buf_size       = 5);
+    const int                                                     mem_buf_size       = 5);
 
 std::shared_ptr<BaseInferCoreFactory> CreateTrtInferCoreFactory(
-    std::string                                                  model_path,
+    std::string                                                   model_path,
     const std::unordered_map<std::string, std::vector<uint64_t>> &input_blobs_shape  = {},
     const std::unordered_map<std::string, std::vector<uint64_t>> &output_blobs_shape = {},
-    const int                                                    mem_buf_size       = 5);
+    const int                                                     mem_buf_size       = 5);
 
 } // namespace inference_core
 

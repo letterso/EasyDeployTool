@@ -10,7 +10,7 @@ find_package(glog REQUIRED)
 set(source_file src/rknn_core.cpp
                 src/rknn_core_factory.cpp)
 
-add_library(${PROJECT_NAME} SHARED ${source_file})  
+add_library(${PROJECT_NAME} SHARED ${source_file})
 
 include_directories(
   include

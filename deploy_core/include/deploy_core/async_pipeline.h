@@ -58,7 +58,7 @@ public:
    *
    * @return inference_core::BlobsTensor*
    */
-  virtual inference_core::BlobsTensor* GetInferBuffer() = 0;
+  virtual inference_core::BlobsTensor *GetInferBuffer() = 0;
 
 protected:
   virtual ~IPipelinePackage() = default;
@@ -153,7 +153,8 @@ public:
       return std::future<ResultType>();
     }
 
-    if (!map_name2instance_.at(pipeline_name).IsInitialized()) {
+    if (!map_name2instance_.at(pipeline_name).IsInitialized())
+    {
       LOG(ERROR) << "[BaseAsyncPipeline] `PushPipeline` pipeline {" << pipeline_name
                  << "} is not initilized !!!";
       return std::future<ResultType>();

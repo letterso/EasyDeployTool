@@ -320,7 +320,7 @@ bool RknnInferCore::PreProcess(std::shared_ptr<async_pipeline::IPipelinePackage>
     CHECK_STATE(rknn_outputs_get(rknn_ctx_parallel_[0], blob_output_number_, outputs.data(),
                                  nullptr) == RKNN_SUCC,
                 "[rknn core] Inference `rknn_outputs_get` execute failed!!!");
-    
+
     bq_ctx_.BlockPush(ctx);
     return true;
   };

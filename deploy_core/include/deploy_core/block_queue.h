@@ -151,17 +151,20 @@ BlockQueue<T>::~BlockQueue() noexcept
 
 template <typename T>
 template <typename U>
-bool BlockQueue<T>::BlockPush(U&& obj) noexcept { 
-    std::unique_lock<std::mutex> u_lck(lck_); 
-    while (q_.size() >= max_size_ && push_enabled_.load()) { 
-        producer_cv_.wait(u_lck); 
-    } 
-    if (!push_enabled_.load()) { 
-        return false; 
-    } 
-    q_.push(std::forward<U>(obj));  // 完美转发
-    consumer_cv_.notify_one(); 
-    return true; 
+bool BlockQueue<T>::BlockPush(U &&obj) noexcept
+{
+  std::unique_lock<std::mutex> u_lck(lck_);
+  while (q_.size() >= max_size_ && push_enabled_.load())
+  {
+    producer_cv_.wait(u_lck);
+  }
+  if (!push_enabled_.load())
+  {
+    return false;
+  }
+  q_.push(std::forward<U>(obj)); // 完美转发
+  consumer_cv_.notify_one();
+  return true;
 }
 
 template <typename T>
@@ -294,6 +297,6 @@ void BlockQueue<T>::SetNoMoreInput() noexcept
   consumer_cv_.notify_all();
 }
 
-}
+} // namespace deploy_core
 
 #endif

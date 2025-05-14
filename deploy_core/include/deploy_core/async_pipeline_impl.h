@@ -182,7 +182,8 @@ public:
     LOG(INFO) << "[AsyncPipelineInstance] Total {" << n << "} Pipeline Blocks";
     for (int i = 0; i < n + 1; ++i)
     {
-      block_queue_.emplace_back(std::make_shared<deploy_core::BlockQueue<InnerParsingType>>(bq_max_size));
+      block_queue_.emplace_back(
+          std::make_shared<deploy_core::BlockQueue<InnerParsingType>>(bq_max_size));
     }
     pipeline_close_flag_.store(false);
 
@@ -255,7 +256,7 @@ public:
 private:
   bool ThreadExcuteEntry(std::shared_ptr<deploy_core::BlockQueue<InnerParsingType>> bq_input,
                          std::shared_ptr<deploy_core::BlockQueue<InnerParsingType>> bq_output,
-                         const InnerBlock_t                           &pipeline_block)
+                         const InnerBlock_t                                        &pipeline_block)
   {
     LOG(INFO) << "[AsyncPipelineInstance] {" << pipeline_block.GetName() << "} thread start!";
     while (!pipeline_close_flag_)
@@ -331,7 +332,7 @@ private:
   InnerContext_t inner_context_;
 
   std::vector<std::shared_ptr<deploy_core::BlockQueue<InnerParsingType>>> block_queue_;
-  std::vector<std::future<bool>>                             async_futures_;
+  std::vector<std::future<bool>>                                          async_futures_;
 
   std::atomic<bool> pipeline_close_flag_{true};
   std::atomic<bool> pipeline_no_more_input_{true};

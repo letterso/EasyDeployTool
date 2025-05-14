@@ -15,13 +15,13 @@ endif()
 find_package(OpenCV REQUIRED)
 find_package(glog REQUIRED)
 
-set(source_file 
+set(source_file
     src/detection_2d_preprocess_cpu.cpp
     src/detection_2d_postprocess_cpu.cpp
 )
 
 if(ENABLE_TENSORRT)
-  list(APPEND source_file 
+  list(APPEND source_file
           src/detection_2d_preprocess_cuda.cpp
           src/detection_2d_cuda_preprocess.cu
   )
@@ -32,9 +32,9 @@ include_directories(
   ${OpenCV_INCLUDE_DIRS}
 )
 
-add_library(${PROJECT_NAME} SHARED ${source_file})   
+add_library(${PROJECT_NAME} SHARED ${source_file})
 
-target_link_libraries(${PROJECT_NAME} PUBLIC 
+target_link_libraries(${PROJECT_NAME} PUBLIC
   glog::glog
   ${OpenCV_LIBS}
   deploy_core
