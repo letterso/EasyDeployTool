@@ -33,7 +33,8 @@ public:
    * @return true
    * @return false
    */
-  bool BlockPush(const T &obj) noexcept;
+  template <typename U>
+  bool BlockPush(U &&obj) noexcept;
 
   /**
    * @brief Push a obj into the queue. Will cover the oldest element if the queue is full.
@@ -42,7 +43,8 @@ public:
    * @return true
    * @return false
    */
-  bool CoverPush(const T &obj) noexcept;
+  template <typename U>
+  bool CoverPush(U &&obj) noexcept;
 
   /**
    * @brief Get and pop the oldest element in the queue. Will block the thread if the queue is
@@ -148,24 +150,23 @@ BlockQueue<T>::~BlockQueue() noexcept
 }
 
 template <typename T>
-bool BlockQueue<T>::BlockPush(const T &obj) noexcept
-{
-  std::unique_lock<std::mutex> u_lck(lck_);
-  while (q_.size() >= max_size_ && push_enabled_.load())
-  {
-    producer_cv_.wait(u_lck);
-  }
-  if (!push_enabled_.load())
-  {
-    return false;
-  }
-  q_.push(obj);
-  consumer_cv_.notify_one();
-  return true;
+template <typename U>
+bool BlockQueue<T>::BlockPush(U&& obj) noexcept { 
+    std::unique_lock<std::mutex> u_lck(lck_); 
+    while (q_.size() >= max_size_ && push_enabled_.load()) { 
+        producer_cv_.wait(u_lck); 
+    } 
+    if (!push_enabled_.load()) { 
+        return false; 
+    } 
+    q_.push(std::forward<U>(obj));  // 完美转发
+    consumer_cv_.notify_one(); 
+    return true; 
 }
 
 template <typename T>
-bool BlockQueue<T>::CoverPush(const T &obj) noexcept
+template <typename U>
+bool BlockQueue<T>::CoverPush(U &&obj) noexcept
 {
   std::unique_lock<std::mutex> u_lck(lck_);
   if (!push_enabled_.load())
@@ -176,7 +177,7 @@ bool BlockQueue<T>::CoverPush(const T &obj) noexcept
   {
     q_.pop();
   }
-  q_.push(obj);
+  q_.push(std::forward<U>(obj));
   consumer_cv_.notify_one();
   return true;
 }
@@ -194,7 +195,7 @@ std::optional<T> BlockQueue<T>::Take() noexcept
   {
     return std::nullopt;
   }
-  T ret = q_.front();
+  T ret = std::move(q_.front());
   q_.pop();
   producer_cv_.notify_one();
 
