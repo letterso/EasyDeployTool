@@ -71,4 +71,4 @@ RUN TENSORRT_MAJOR_VERSION=`echo ${TENSORRT_VERSION} | cut -d '.' -f 1` && \
                        libnvinfer-samples=${TENSORRT_PACAKGE_VERSION}
 
 RUN cd /usr/src/tensorrt/samples \
-    && make -j 
+    && make -j

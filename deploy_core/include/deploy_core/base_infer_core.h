@@ -8,10 +8,10 @@
 #ifndef __EASY_DEPLOY_BASE_INFER_CORE_H
 #define __EASY_DEPLOY_BASE_INFER_CORE_H
 
-#include <atomic>
 #include <memory>
 #include <thread>
 #include <vector>
+#include <unordered_set>
 
 #include "deploy_core/block_queue.h"
 #include "deploy_core/async_pipeline.h"
@@ -33,10 +33,10 @@ public:
    * may take a while to process. Use pre-allocated buffer instance in mem buffer pool could
    * get better performance. See `BaseInferCore`.
    *
-   * @return std::shared_ptr<IBlobsBuffer> A brand new buffer instance allocated by inference
+   * @return std::unique_ptr<BlobsTensor> A brand new buffer instance allocated by inference
    * core.
    */
-  virtual std::shared_ptr<IBlobsBuffer> AllocBlobsBuffer() = 0;
+  virtual std::unique_ptr<BlobsTensor> AllocBlobsBuffer() = 0;
 
   /**
    * @brief Get the core type.
@@ -94,11 +94,11 @@ protected:
 };
 
 /**
- * @brief A simple implementation of mem buffer pool. Using `deploy_core::BlockQueue` to deploy a producer-
- * consumer model. It will allocate buffer using `AllocBlobsBuffer` method of `IRotInferCore`
- * and provides `IBlobsBuffer` ptr when `Alloc` method is called. The "Alloced" buffer will
- * return back to mem buffer pool while the customed deconstruction method of shared_ptr ptr
- * is called.
+ * @brief A simple implementation of mem buffer pool. Using `deploy_core::BlockQueue` to deploy a
+ * producer- consumer model. It will allocate buffer using `AllocBlobsBuffer` method of
+ * `IRotInferCore` and provides `BlobsTensor` ptr when `Alloc` method is called. The "Alloced"
+ * buffer will return back to mem buffer pool while the customed deconstruction method of shared_ptr
+ * ptr is called.
  *
  */
 class MemBufferPool {
@@ -108,22 +108,22 @@ public:
   {
     for (int i = 0; i < pool_size; ++i)
     {
-      auto blob_buffer = infer_core->AllocBlobsBuffer();
-      dynamic_pool_.BlockPush(blob_buffer.get());
-      static_pool_.insert({blob_buffer.get(), blob_buffer});
+      auto blobs_tensor = infer_core->AllocBlobsBuffer();
+      dynamic_pool_.BlockPush(blobs_tensor.get());
+      static_pool_.emplace(std::move(blobs_tensor));
     }
   }
 
-  std::shared_ptr<IBlobsBuffer> Alloc(bool block)
+  std::shared_ptr<BlobsTensor> Alloc(bool block)
   {
     // customed deconstruction method
-    auto func_dealloc = [&](IBlobsBuffer *buf) {
+    auto func_dealloc = [&](BlobsTensor *buf) {
       buf->Reset();
       this->dynamic_pool_.BlockPush(buf);
     };
 
     auto buf = block ? dynamic_pool_.Take() : dynamic_pool_.TryTake();
-    return buf.has_value() ? std::shared_ptr<IBlobsBuffer>(buf.value(), func_dealloc) : nullptr;
+    return buf.has_value() ? std::shared_ptr<BlobsTensor>(buf.value(), func_dealloc) : nullptr;
   }
 
   void Release()
@@ -146,9 +146,9 @@ public:
   }
 
 private:
-  const int                                                         pool_size_;
-  deploy_core::BlockQueue<IBlobsBuffer *>                                        dynamic_pool_;
-  std::unordered_map<IBlobsBuffer *, std::shared_ptr<IBlobsBuffer>> static_pool_;
+  const int                                        pool_size_;
+  deploy_core::BlockQueue<BlobsTensor *>           dynamic_pool_;
+  std::unordered_set<std::unique_ptr<BlobsTensor>> static_pool_;
 };
 
 /**
@@ -176,8 +176,9 @@ public:
  * process. It should be used by specific algorithms in its entirety.
  *
  */
-class BaseInferCore : public IRotInferCore,
-                      protected async_pipeline::BaseAsyncPipeline<bool, _DummyInferCoreGenReulstType> {
+class BaseInferCore
+    : public IRotInferCore,
+      protected async_pipeline::BaseAsyncPipeline<bool, _DummyInferCoreGenReulstType> {
 protected:
   BaseInferCore();
   typedef std::shared_ptr<async_pipeline::IPipelinePackage> ParsingType;
@@ -195,16 +196,16 @@ public:
    * @return true
    * @return false
    */
-  bool SyncInfer(std::shared_ptr<IBlobsBuffer> buffer, const int batch_size = 1);
+  bool SyncInfer(BlobsTensor *tensors, const int batch_size = 1);
 
   /**
    * @brief Get the pre-allocated blobs buffer shared pointer. The returned pointer is a
    * smart pointer which will automatically return to the pool when it is released.
    *
    * @param block whether to block the thread if the pool is empty.
-   * @return std::shared_ptr<IBlobsBuffer>
+   * @return std::shared_ptr<BlobsTensor>
    */
-  std::shared_ptr<IBlobsBuffer> GetBuffer(bool block);
+  std::shared_ptr<BlobsTensor> GetBuffer(bool block);
 
   /**
    * @brief Release the sources in base class.
@@ -237,7 +238,7 @@ private:
 
 /**
  * @brief Abstract factory class of infer_core.
- * 
+ *
  */
 class BaseInferCoreFactory {
 public:

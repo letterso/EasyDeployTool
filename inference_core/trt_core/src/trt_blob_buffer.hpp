@@ -9,6 +9,7 @@
 #define __EASY_DEPLOY_TRT_BLOB_BUFFER_H
 
 #include <cuda_runtime.h>
+#include <assert.h>
 
 #include "deploy_core/blob_buffer.h"
 
@@ -37,209 +38,156 @@ inline std::string VisualVec(const std::vector<Type> &vec)
   return ret;
 }
 
-class TrtBlobBuffer : public IBlobsBuffer {
+template <typename T>
+class CudaMemoryDeleter {
 public:
-  /**
-   * @brief Overrided from `IBlobsBuffer`, provide the buffer ptr which is used as
-   * input data of tensorrt inference engine. It depends on `SetBlobBuffer` method.
-   *
-   * @param blob_name The blob_name of model.
-   * @return std::pair<void*, DataLocation> . Will return {nullptr, UNKOWN} if `blob_name`
-   * does not match.
-   */
-  std::pair<void *, DataLocation> GetOuterBlobBuffer(const std::string &blob_name) noexcept override
+  void operator()(T *ptr)
   {
-    if (outer_map_blob2ptr_.find(blob_name) == outer_map_blob2ptr_.end())
-    {
-      LOG(ERROR) << "[TrtBlobBuffer] `GetOuterBlobBuffer` Got invalid `blob_name`: " << blob_name;
-      return {nullptr, UNKOWN};
-    }
-    return outer_map_blob2ptr_[blob_name];
+    cudaFree(ptr);
+  }
+};
+
+class TrtTensor : public ITensor {
+public:
+  const std::string &GetName() const noexcept override
+  {
+    return name_;
   }
 
-  /**
-   * @brief Overrided from `IBlobsBuffer`, users could make tensorrt inference core use customed
-   * data buffer to deploy inference. `data_ptr` and `location` are required to modify inner
-   * mapping.
-   *
-   * @param blob_name The blob_name of model.
-   * @param data_ptr Customed data buffer ptr.
-   * @param location Where the data buffer locates.
-   * @return true Successfully set customed data buffer.
-   * @return false Will return false if `blob_name` does not match, or `data_ptr` is not valid.
-   */
-  bool SetBlobBuffer(const std::string &blob_name,
-                     void              *data_ptr,
-                     DataLocation       location) noexcept override
+  void *RawPtr() override
   {
-    if (outer_map_blob2ptr_.find(blob_name) == outer_map_blob2ptr_.end())
-    {
-      LOG(ERROR) << "[TrtBlobBuffer] `SetBlobBuffer` Got invalid `blob_name`: " << blob_name;
-      return false;
-    }
+    assert(current_location_ != DataLocation::UNKOWN);
+    return current_location_ == DataLocation::HOST ? buffer_on_host_ : buffer_on_device_;
+  }
 
-    if (location == DataLocation::HOST)
+  void SetBufferLocation(DataLocation location) override
+  {
+    CHECK_STATE_THROW(location != DataLocation::UNKOWN,
+                      "[TrtTensor] `SetBufferLocation` Got invalid location: UNKOWN !");
+    current_location_ = location;
+  }
+
+  void ToLocation(DataLocation location) override
+  {
+    assert(current_location_ != DataLocation::UNKOWN);
+    CHECK_STATE_THROW(location != DataLocation::UNKOWN,
+                      "[TrtTensor] `ToLocation` Got invalid location: UNKOWN !");
+
+    if (current_location_ == location)
+      return;
+    if (current_location_ == DataLocation::HOST)
     {
-      outer_map_blob2ptr_[blob_name] = {inner_map_host_blob2ptr_[blob_name], location};
+      cudaMemcpy(buffer_on_device_, buffer_on_host_, GetTensorByteSize(), cudaMemcpyHostToDevice);
     } else
     {
+      cudaMemcpy(buffer_on_host_, buffer_on_device_, GetTensorByteSize(), cudaMemcpyDeviceToHost);
+    }
+  }
+
+  DataLocation GetBufferLocation() const noexcept override
+  {
+    assert(current_location_ != DataLocation::UNKOWN);
+    return current_location_;
+  }
+
+  void ZeroCopy(ITensor *tensor) override
+  {
+    CHECK_STATE_THROW(tensor != nullptr, "[TrtTensor] `ZeroCopy` Got invalid tensor: nullptr !");
+    auto location = tensor->GetBufferLocation();
+    auto raw_ptr  = tensor->RawPtr();
+    CHECK_STATE_THROW(location != DataLocation::UNKOWN,
+                      "[TrtTensor] `ZeroCopy` Got invalid tensor location: UNKOWN !");
+    CHECK_STATE_THROW(raw_ptr != nullptr,
+                      "[TrtTensor] `ZeroCopy` Got invalid tensor raw_ptr: nullptr !");
+
+    if (location == DataLocation::DEVICE)
+    {
       cudaPointerAttributes attr;
-      cudaError_t           status = cudaPointerGetAttributes(&attr, data_ptr);
-      if (status != cudaSuccess || attr.type != cudaMemoryType::cudaMemoryTypeDevice)
-      {
-        LOG(ERROR) << "[TrtBlobBuffer] `SetBlobBuffer` Got "
-                      "invalid `data_ptr` "
-                      "which should be "
-                   << "allocated by `cudaMalloc`, but it "
-                      "is NOT !!!";
-        return false;
-      }
-      outer_map_blob2ptr_[blob_name] = {data_ptr, location};
-    }
-    return true;
-  }
-
-  /**
-   * @brief Overrided from `IBlobsBuffer`, set the default buffer ptr used in tensorrt
-   * engine inference stage. After calling `SetBlobBuffer`, `GetOuterBlobBuffer` could
-   * get certain buffer ptr on `location`.
-   *
-   * @param blob_name The blob_name of model.
-   * @param location Which buffer to use in inference stage.
-   * @return true Successfully set blob buffer location.
-   * @return false Will return false if blob_name does not match.
-   */
-  bool SetBlobBuffer(const std::string &blob_name, DataLocation location) noexcept override
-  {
-    if (outer_map_blob2ptr_.find(blob_name) == outer_map_blob2ptr_.end())
+      cudaError_t           status = cudaPointerGetAttributes(&attr, raw_ptr);
+      CHECK_STATE_THROW(
+          status == cudaSuccess && attr.type == cudaMemoryType::cudaMemoryTypeDevice,
+          "[TrtTensor] `ZeroCopy` Got invalid tensor raw_ptr: NOT valid cuda buffer on device !");
+      buffer_on_device_ = raw_ptr;
+    } else
     {
-      LOG(ERROR) << "[TrtBlobBuffer] `SetBlobBuffer` Got invalid `blob_name`: " << blob_name;
-      return false;
+      buffer_on_host_ = raw_ptr;
     }
 
-    outer_map_blob2ptr_[blob_name] = {
-        (location == DataLocation::HOST ? inner_map_host_blob2ptr_[blob_name]
-                                        : inner_map_device_blob2ptr_[blob_name]),
-        location};
-
-    return true;
+    current_location_ = location;
   }
 
-  /**
-   * @brief Overrided from `IBlobsBuffer`, set the dynamic blob shape while tensorrt engine
-   * doing inference. Note that `shape` should not has more element number than origin_shape
-   * which is determined by model build stage. Dynamic shape suportted tensorrt inference
-   * core should constructed by customed max blob shape params. There should not be `0` or any
-   * negative values in `shape` vec.
-   *
-   * @note Please make sure your model supportes dynamic blob shape. Otherwise, it will leads
-   * to unknown results.
-   *
-   * @param blob_name The blob_name of model.
-   * @param shape Dynamic blob shape.
-   * @return true
-   * @return false Will return false if `shape` is not valid or `blob_name` does not match.
-   */
-  bool SetBlobShape(const std::string          &blob_name,
-                    const std::vector<int64_t> &shape) noexcept override
+  void DeepCopy(ITensor *tensor) override
   {
-    if (map_blob_name2shape_.find(blob_name) == map_blob_name2shape_.end())
+    CHECK_STATE_THROW(tensor != nullptr, "[TrtTensor] `DeepCopy` Got invalid tensor: nullptr !");
+    auto location = tensor->GetBufferLocation();
+    auto raw_ptr  = tensor->RawPtr();
+    CHECK_STATE_THROW(location != DataLocation::UNKOWN,
+                      "[TrtTensor] `DeepCopy` Got invalid tensor location: UNKOWN !");
+    CHECK_STATE_THROW(raw_ptr != nullptr,
+                      "[TrtTensor] `DeepCopy` Got invalid tensor raw_ptr: nullptr !");
+
+    if (location == DataLocation::DEVICE)
     {
-      LOG(ERROR) << "[TrtBlobBuffer] `SetBlobShape` Got invalid `blob_name`: " << blob_name;
-      return false;
-    }
-    map_blob_name2shape_[blob_name] = shape;
-    return true;
-  }
-
-  /**
-   * @brief Overrided from `IBlobsBuffer`, provide default or dynamic blob shape. Default
-   * blob shape is defined while tensorrt inference core is built. Will return dynamic blob
-   * shape if `SetBlobShape` is called before `GetBlobShape`.
-   *
-   * @param blob_name The blob_name of model.
-   * @return const std::vector<int64_t>& . A const reference to blob shape recorded in buffer.
-   */
-  const std::vector<int64_t> &GetBlobShape(const std::string &blob_name) const noexcept override
-  {
-    if (map_blob_name2shape_.find(blob_name) == map_blob_name2shape_.end())
+      cudaPointerAttributes attr;
+      cudaError_t           status = cudaPointerGetAttributes(&attr, raw_ptr);
+      CHECK_STATE_THROW(
+          status == cudaSuccess && attr.type == cudaMemoryType::cudaMemoryTypeDevice,
+          "[TrtTensor] `ZeroCopy` Got invalid tensor raw_ptr: NOT valid cuda buffer on device !");
+      buffer_on_device_ = self_maintain_buffer_device_.get();
+      cudaMemcpy(buffer_on_device_, raw_ptr, GetTensorByteSize(), cudaMemcpyDeviceToDevice);
+    } else
     {
-      LOG(ERROR) << "[TrtBlobBuffer] `GetBlobShape` Got invalid `blob_name`: " << blob_name;
-      static std::vector<int64_t> empty_shape;
-      return empty_shape;
+      buffer_on_host_ = self_maintain_buffer_host_.get();
+      memcpy(buffer_on_host_, raw_ptr, GetTensorByteSize());
     }
-    return map_blob_name2shape_.at(blob_name);
+    current_location_ = location;
   }
 
-  /**
-   * @brief Overrided from `IBlobsBuffer`, provide number of blobs.
-   *
-   * @return size_t
-   */
-  size_t Size() const noexcept override
+  const std::vector<size_t> &GetDefaultShape() const noexcept override
   {
-    return outer_map_blob2ptr_.size();
+    return default_shape_;
   }
 
-  /**
-   * @brief Overrided from `IBlobsBuffer`, release the buffer instance.
-   *
-   */
-  void Release() noexcept override
+  const std::vector<size_t> &GetShape() const noexcept override
   {
-    // release device buffer
-    for (void *ptr : device_blobs_buffer_)
-    {
-      if (ptr != nullptr)
-        cudaFree(ptr);
-    }
-    // release host buffer
-    for (void *ptr : host_blobs_buffer_)
-    {
-      if (ptr != nullptr)
-        delete[] reinterpret_cast<u_char *>(ptr);
-    }
-    device_blobs_buffer_.clear();
-    host_blobs_buffer_.clear();
+    return current_shape_;
   }
 
-  /**
-   * @brief Overrided from `IBlobsBuffer`, reset the buffer instance which will not
-   * release the buffer allocated. Mempool will call `Reset` after buffer instance is
-   * returned by user.
-   *
-   */
-  void Reset() noexcept override
+  void SetShape(const std::vector<size_t> &shape) override
   {
-    for (const auto &p_name_ptr : inner_map_host_blob2ptr_)
-    {
-      outer_map_blob2ptr_[p_name_ptr.first] = {p_name_ptr.second, DataLocation::HOST};
-    }
+    size_t this_shape_byte_size = byte_size_per_element_ * CumVector(shape);
+    CHECK_STATE_THROW(
+        this_shape_byte_size <= GetBufferMaxByteSize(),
+        "[TrtTensor] `SetShape` Got invalid shape: exceeds max byte size !");
+    current_shape_ = shape;
   }
 
-  ~TrtBlobBuffer()
+  size_t GetBufferMaxByteSize() const noexcept override
   {
-    Release();
+    return byte_size_per_element_ * CumVector(default_shape_);
   }
-  // no copy
-  TrtBlobBuffer()                                 = default;
-  TrtBlobBuffer(const TrtBlobBuffer &)            = delete;
-  TrtBlobBuffer &operator=(const TrtBlobBuffer &) = delete;
 
-  // mapping blob_name and buffer ptrs
-  std::unordered_map<std::string, std::pair<void *, DataLocation>> outer_map_blob2ptr_;
-  std::unordered_map<std::string, void *>                          inner_map_device_blob2ptr_;
-  std::unordered_map<std::string, void *>                          inner_map_host_blob2ptr_;
+  size_t GetTensorByteSize() const noexcept override
+  {
+    return byte_size_per_element_ * CumVector(current_shape_);
+  }
 
-  // buffer ptr vector, used while doing inference with tensorrt engine
-  std::vector<void *> buffer_input_core_;
+  size_t GetElementByteSize() const noexcept override
+  {
+    return byte_size_per_element_;
+  }
 
-  // maintain buffer ptrs.
-  std::vector<void *> device_blobs_buffer_;
-  std::vector<void *> host_blobs_buffer_;
+public:
+  std::string         name_;
+  void               *buffer_on_device_{nullptr};
+  void               *buffer_on_host_{nullptr};
+  DataLocation        current_location_{DataLocation::HOST};
+  std::vector<size_t> current_shape_;
+  std::vector<size_t> default_shape_;
+  size_t byte_size_per_element_;
 
-  // mapping blob_name and dynamic blob shape
-  std::unordered_map<std::string, std::vector<int64_t>> map_blob_name2shape_;
+  std::unique_ptr<void, std::function<void(void*)>> self_maintain_buffer_device_{nullptr};
+  std::unique_ptr<u_char[]> self_maintain_buffer_host_{nullptr};
 };
 
 } // namespace inference_core

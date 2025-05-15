@@ -53,6 +53,15 @@ enum ImageDataFormat { YUV = 0, RGB = 1, BGR = 2, GRAY = 3 };
     }                            \
   }
 
+#define CHECK_STATE_THROW(state, hint) \
+  {                                    \
+    if (!(state))                      \
+    {                                  \
+      LOG(ERROR) << (hint);            \
+      throw std::runtime_error(hint);  \
+    }                                  \
+  }
+
 #define MESSURE_DURATION(run)                                                                \
   {                                                                                          \
     auto start = std::chrono::high_resolution_clock::now();                                  \

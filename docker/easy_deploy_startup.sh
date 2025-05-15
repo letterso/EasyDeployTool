@@ -13,7 +13,7 @@ exit_program() { echo "系统已退出"; exit 0; }
 load_module() {
     local module=$1
     local module_path="${FUNCTIONS_DIR}/${module}.sh"
-    
+
     [ -z "${loaded_modules[$module]}" ] && {
         [ -f "$module_path" ] || { echo "错误：模块 $module 不存在"; exit 1; }
         set --; source "$module_path"
@@ -61,21 +61,21 @@ show_menu() {
     clear
     local menu_name=$1
     declare -n menu="$menu_name"
-    
+
     # 预加载模块
     [ -n "${menu[module]}" ] && load_module "${menu[module]}"
-    
+
     # 显示界面
     echo "========================"
     echo "${menu["title"]}"
     echo "========================"
-    
+
     IFS=' ' read -ra opts <<< "${menu["options"]}"
     for opt in "${opts[@]}"; do
         IFS='|' read -ra parts <<< "$opt"
         printf "%-2s) %s\n" "${parts[0]}" "${parts[1]}"
     done
-    
+
     # 导航选项
     [ "$menu_name" != "main_menu" ] && echo "b ) 返回上级"
     echo "q ) 退出系统"
@@ -90,7 +90,7 @@ handle_choice() {
     case $choice in
         q) exit_program ;;
         b) [ "$menu_name" != "main_menu" ] && go_back ;;
-        *) 
+        *)
             IFS=' ' read -ra opts <<< "${menu["options"]}"
             for opt in "${opts[@]}"; do
                 IFS='|' read -ra parts <<< "$opt"
@@ -123,7 +123,7 @@ while true; do
     show_menu "$current_menu_name"
     echo -e "\n${main_menu["prompt"]}"
     read -p "请输入选项: " choice
-    
+
     if handle_choice "$current_menu_name" "${choice,,}"; then
         continue
     else

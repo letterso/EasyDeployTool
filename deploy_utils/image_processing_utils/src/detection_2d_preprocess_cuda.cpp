@@ -26,8 +26,7 @@ public:
                     const int max_src_channels = 3);
 
   float Preprocess(std::shared_ptr<async_pipeline::IPipelineImageData> input_image_data,
-                   std::shared_ptr<inference_core::IBlobsBuffer>       blob_buffer,
-                   const std::string                                  &blob_name,
+                   inference_core::ITensor                            *tensor,
                    int                                                 dst_height,
                    int                                                 dst_width) override;
 
@@ -59,16 +58,13 @@ DetPreProcessCUDA::DetPreProcessCUDA(const int max_src_height,
 
 float DetPreProcessCUDA::Preprocess(
     std::shared_ptr<async_pipeline::IPipelineImageData> input_image_data,
-    std::shared_ptr<inference_core::IBlobsBuffer>       blob_buffer,
-    const std::string                                  &blob_name,
+    inference_core::ITensor                            *tensor,
     int                                                 dst_height,
     int                                                 dst_width)
 {
   // 1. Make sure the buffer ptr is on device side
-  blob_buffer->SetBlobBuffer(blob_name, DataLocation::DEVICE);
-  auto _dst_ptr = blob_buffer->GetOuterBlobBuffer(blob_name);
-
-  float      *dst_ptr         = static_cast<float *>(_dst_ptr.first);
+  tensor->SetBufferLocation(DataLocation::DEVICE);
+  float      *dst_ptr         = tensor->Cast<float>();
   const auto &image_data_info = input_image_data->GetImageDataInfo();
 
   // 2. Call cuda kernel function

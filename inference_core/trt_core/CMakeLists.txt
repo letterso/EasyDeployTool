@@ -25,12 +25,12 @@ include_directories(
   ${CUDA_INCLUDE_DIRS}
 )
 
-add_library(${PROJECT_NAME} SHARED ${source_file}) 
+add_library(${PROJECT_NAME} SHARED ${source_file})
 
 
 target_link_libraries(${PROJECT_NAME} PUBLIC
   ${CUDA_LIBRARIES}
-  nvinfer 
+  nvinfer
   nvonnxparser
   nvinfer_plugin
   deploy_core

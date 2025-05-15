@@ -28,8 +28,7 @@ namespace detection_2d {
 class IDetectionPreProcess {
 public:
   virtual float Preprocess(std::shared_ptr<async_pipeline::IPipelineImageData> input_image_data,
-                           std::shared_ptr<inference_core::IBlobsBuffer>       blob_buffer,
-                           const std::string                                  &blob_name,
+                           inference_core::ITensor                            *tensor,
                            int                                                 dst_height,
                            int                                                 dst_width) = 0;
 };
@@ -62,16 +61,16 @@ struct DetectionPipelinePackage : public async_pipeline::IPipelinePackage {
   std::vector<BBox2D> results;
 
   // maintain the blobs buffer instance
-  std::shared_ptr<inference_core::IBlobsBuffer> infer_buffer;
+  std::shared_ptr<inference_core::BlobsTensor> infer_buffer;
 
   // override from `IPipelinePakcage`, to provide the blobs buffer to inference_core
-  std::shared_ptr<inference_core::IBlobsBuffer> GetInferBuffer() override
+  inference_core::BlobsTensor *GetInferBuffer() override
   {
     if (infer_buffer == nullptr)
     {
       LOG(ERROR) << "[DetectionPipelinePackage] returned nullptr of infer_buffer!!!";
     }
-    return infer_buffer;
+    return infer_buffer.get();
   }
 };
 
@@ -190,7 +189,7 @@ protected:
 
 /**
  * @brief Abstract factory class of detection_2d model.
- * 
+ *
  */
 class BaseDetection2DFactory {
 public:

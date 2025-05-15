@@ -21,13 +21,13 @@ set(source_file src/base_infer_core.cpp
                 src/base_mono_stereo.cpp
 )
 
-add_library(${PROJECT_NAME} SHARED ${source_file})   
+add_library(${PROJECT_NAME} SHARED ${source_file})
 
 
 target_link_libraries(${PROJECT_NAME} PUBLIC
   ${OpenCV_LIBS}
   glog::glog
-) 
+)
 
 install(TARGETS ${PROJECT_NAME}
         LIBRARY DESTINATION lib)

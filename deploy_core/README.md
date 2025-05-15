@@ -6,16 +6,16 @@ The `DeployCore` module defines the abstract functionalities for all components,
 
 `DeployCore` is designed to provide abstract interface definitions for the functionalities of all modules, as well as abstract base classes containing reusable code.
 
-- Abstract core inference functionality: `BaseInferCore`  
-- Abstract 2D detection functionality: `BaseDetection2DModel`  
-- Abstract SAM functionality: `BaseSamModel`  
+- Abstract core inference functionality: `BaseInferCore`
+- Abstract 2D detection functionality: `BaseDetection2DModel`
+- Abstract SAM functionality: `BaseSamModel`
 - Plug-and-play asynchronous pipeline base class: `BaseAsyncPipeline`
 
 ## Structure
 
-The entire project code is divided into three parts:  
-  1. Abstract interface classes for functional modules  
-  2. Abstract base classes for certain functional modules  
+The entire project code is divided into three parts:
+  1. Abstract interface classes for functional modules
+  2. Abstract base classes for certain functional modules
   3. Base classes for the asynchronous inference pipeline framework
 
 code structure:
@@ -46,9 +46,9 @@ code structure:
     |-- base_detection.h
     |-- base_sam.h
     ```
-    1. **`base_infer_core.h`**: Defines the core inference functionalities and related abstract classes, while also providing an abstract base class for the foundational features of the inference core module.  
-    2. **`base_detection.h`**: Defines the abstract base class for 2D detection functionalities.  
-    3. **`base_sam.h`**: Defines the abstract base class for SAM functionalities. 
+    1. **`base_infer_core.h`**: Defines the core inference functionalities and related abstract classes, while also providing an abstract base class for the foundational features of the inference core module.
+    2. **`base_detection.h`**: Defines the abstract base class for 2D detection functionalities.
+    3. **`base_sam.h`**: Defines the abstract base class for SAM functionalities.
 
   - Base classes for the asynchronous inference pipeline framework
     ```bash
@@ -58,11 +58,10 @@ code structure:
     |-- common_defination.h
     `-- wrapper.h
     ```
-    1. **`async_pipeline.h`** and **`async_pipeline_impl.h`**: Define the asynchronous inference framework and its implementation.  
-    2. **`block_queue.h`**: Implements the blocking queue.  
-    3. **`common_defination.h`**: Contains common definitions, such as 2D bounding boxes.  
+    1. **`async_pipeline.h`** and **`async_pipeline_impl.h`**: Define the asynchronous inference framework and its implementation.
+    2. **`block_queue.h`**: Implements the blocking queue.
+    3. **`common_defination.h`**: Contains common definitions, such as 2D bounding boxes.
     4. **`wrapper.h`**: Provides wrappers for certain classes, such as the encapsulation of OpenCV's `cv::Mat` format.
-  
+
 
 ## TODO
-
