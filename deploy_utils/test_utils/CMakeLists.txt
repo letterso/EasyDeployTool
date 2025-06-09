@@ -24,6 +24,7 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
   glog::glog
   ${OpenCV_LIBS}
   deploy_core
+  common_utils
 )
 
 install(TARGETS ${PROJECT_NAME}
