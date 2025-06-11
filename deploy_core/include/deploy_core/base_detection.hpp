@@ -1,12 +1,4 @@
-/*
- * @Description:
- * @Author: Teddywesside 18852056629@163.com
- * @Date: 2024-11-25 14:24:19
- * @LastEditTime: 2024-12-02 20:03:34
- * @FilePath: /easy_deploy/deploy_core/include/deploy_core/base_detection.h
- */
-#ifndef __DEPLOY_CORE_BASE_DETECTION_H
-#define __DEPLOY_CORE_BASE_DETECTION_H
+#pragma once
 
 #include <atomic>
 #include <functional>
@@ -15,10 +7,10 @@
 
 #include <opencv2/opencv.hpp>
 
-#include "deploy_core/async_pipeline.h"
-#include "deploy_core/base_infer_core.h"
+#include "deploy_core/async_pipeline.hpp"
+#include "deploy_core/base_infer_core.hpp"
 
-namespace detection_2d {
+namespace easy_deploy {
 
 /**
  * @brief A abstract interface class which defines the preprocess interface of detection_2d
@@ -27,10 +19,10 @@ namespace detection_2d {
  */
 class IDetectionPreProcess {
 public:
-  virtual float Preprocess(std::shared_ptr<async_pipeline::IPipelineImageData> input_image_data,
-                           inference_core::ITensor                            *tensor,
-                           int                                                 dst_height,
-                           int                                                 dst_width) = 0;
+  virtual float Preprocess(std::shared_ptr<IPipelineImageData> input_image_data,
+                           ITensor                            *tensor,
+                           int                                 dst_height,
+                           int                                 dst_width) = 0;
 };
 
 /**
@@ -50,9 +42,9 @@ public:
  * @brief The common detection_2d pipeline package wrapper.
  *
  */
-struct DetectionPipelinePackage : public async_pipeline::IPipelinePackage {
+struct DetectionPipelinePackage : public IPipelinePackage {
   // the wrapped pipeline image data
-  std::shared_ptr<async_pipeline::IPipelineImageData> input_image_data;
+  std::shared_ptr<IPipelineImageData> input_image_data;
   // confidence used in postprocess
   float conf_thresh;
   // record the transform factor during image preprocess
@@ -61,15 +53,11 @@ struct DetectionPipelinePackage : public async_pipeline::IPipelinePackage {
   std::vector<BBox2D> results;
 
   // maintain the blobs buffer instance
-  std::shared_ptr<inference_core::BlobsTensor> infer_buffer;
+  std::shared_ptr<BlobsTensor> infer_buffer;
 
   // override from `IPipelinePakcage`, to provide the blobs buffer to inference_core
-  inference_core::BlobsTensor *GetInferBuffer() override
+  BlobsTensor *GetInferBuffer() override
   {
-    if (infer_buffer == nullptr)
-    {
-      LOG(ERROR) << "[DetectionPipelinePackage] returned nullptr of infer_buffer!!!";
-    }
     return infer_buffer.get();
   }
 };
@@ -96,7 +84,7 @@ protected:
    * @return true
    * @return false
    */
-  virtual bool PreProcess(std::shared_ptr<async_pipeline::IPipelinePackage> pipeline_unit) = 0;
+  virtual bool PreProcess(std::shared_ptr<IPipelinePackage> pipeline_unit) = 0;
 
   /**
    * @brief PostProcess-Stage. Inside the method, you should cast the `pipeline_unit` pointer to
@@ -108,7 +96,7 @@ protected:
    * @return true
    * @return false
    */
-  virtual bool PostProcess(std::shared_ptr<async_pipeline::IPipelinePackage> pipeline_unit) = 0;
+  virtual bool PostProcess(std::shared_ptr<IPipelinePackage> pipeline_unit) = 0;
 };
 
 /**
@@ -118,12 +106,12 @@ protected:
  */
 class DetectionGenResultType {
 public:
-  std::vector<BBox2D> operator()(const std::shared_ptr<async_pipeline::IPipelinePackage> &package)
+  std::vector<BBox2D> operator()(const std::shared_ptr<IPipelinePackage> &package)
   {
     auto detection_package = std::dynamic_pointer_cast<DetectionPipelinePackage>(package);
     if (detection_package == nullptr)
     {
-      LOG(ERROR) << "[DetectionGenResult] Got INVALID package ptr!!!";
+      LOG_ERROR("[DetectionGenResult] Got INVALID package ptr!!!");
       return {};
     }
     return std::move(detection_package->results);
@@ -138,13 +126,12 @@ public:
  * returns a valid `std::future<>` instance before involke `get()` method.
  *
  */
-class BaseDetectionModel
-    : public IDetectionModel,
-      public async_pipeline::BaseAsyncPipeline<std::vector<BBox2D>, DetectionGenResultType> {
-  typedef std::shared_ptr<async_pipeline::IPipelinePackage> ParsingType;
+class BaseDetectionModel : public IDetectionModel,
+                           public BaseAsyncPipeline<std::vector<BBox2D>, DetectionGenResultType> {
+  typedef std::shared_ptr<IPipelinePackage> ParsingType;
 
 public:
-  BaseDetectionModel(std::shared_ptr<inference_core::BaseInferCore> infer_core);
+  BaseDetectionModel(std::shared_ptr<BaseInferCore> infer_core);
 
   /**
    * @brief Run the detection processing in synchronous mode.
@@ -182,7 +169,7 @@ protected:
 
   virtual ~BaseDetectionModel();
 
-  std::shared_ptr<inference_core::BaseInferCore> infer_core_{nullptr};
+  std::shared_ptr<BaseInferCore> infer_core_{nullptr};
 
   static std::string detection_pipeline_name_;
 };
@@ -193,19 +180,17 @@ protected:
  */
 class BaseDetection2DFactory {
 public:
-  virtual std::shared_ptr<detection_2d::BaseDetectionModel> Create() = 0;
+  virtual std::shared_ptr<BaseDetectionModel> Create() = 0;
 };
 
 class BaseDetectionPreprocessFactory {
 public:
-  virtual std::shared_ptr<detection_2d::IDetectionPreProcess> Create() = 0;
+  virtual std::shared_ptr<IDetectionPreProcess> Create() = 0;
 };
 
 class BaseDetectionPostprocessFactory {
 public:
-  virtual std::shared_ptr<detection_2d::IDetectionPostProcess> Create() = 0;
+  virtual std::shared_ptr<IDetectionPostProcess> Create() = 0;
 };
 
-} // namespace detection_2d
-
-#endif
+} // namespace easy_deploy

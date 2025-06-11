@@ -1,13 +1,6 @@
-/*
- * @Description:
- * @Author: Teddywesside 18852056629@163.com
- * @Date: 2024-11-19 18:33:00
- * @LastEditTime: 2024-12-03 15:51:39
- * @FilePath: /EasyDeploy/deploy_utils/image_processing_utils/src/detection_2d_postprocess_cpu.cpp
- */
-#include "detection_2d_util/detection_2d_util.h"
+#include "detection_2d_util/detection_2d_util.hpp"
 
-namespace detection_2d {
+namespace easy_deploy {
 
 static void DetectionNmsProcess(std::vector<BBox2D> &candidates, std::vector<int> &picked_idxes)
 {
@@ -345,8 +338,6 @@ void Yolov8PostProcessCPU_Divide::Postprocess(const std::vector<void *> &output_
                                               float                      conf_threshold,
                                               float                      transform_scale)
 {
-  // box, cls, cls_reduce
-  CHECK(output_blobs_ptr.size() == downsample_scales_.size() * 3);
   // generate candidates
   std::vector<BBox2D> candidates;
   GenerateCandidates(output_blobs_ptr, candidates, conf_threshold, transform_scale);
@@ -490,4 +481,4 @@ std::shared_ptr<BaseDetectionPostprocessFactory> CreateYolov8PostProcessCpuDivid
   return std::make_shared<Detection2DYolov8PostprocessDivideFactory>(params);
 }
 
-} // namespace detection_2d
+} // namespace easy_deploy

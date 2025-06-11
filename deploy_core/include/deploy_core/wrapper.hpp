@@ -1,24 +1,18 @@
-/*
- * @Description:
- * @Author: Teddywesside 18852056629@163.com
- * @Date: 2024-11-25 14:00:38
- * @LastEditTime: 2024-11-26 21:58:32
- * @FilePath: /easy_deploy/deploy_core/include/deploy_core/wrapper.h
- */
-#ifndef __EASY_DEPLOY_WRAPPER_H
-#define __EASY_DEPLOY_WRAPPER_H
+#pragma once
 
-#include "deploy_core/async_pipeline.h"
+#include "deploy_core/async_pipeline.hpp"
 
 #include <opencv2/opencv.hpp>
 
 #include <unordered_map>
 
+namespace easy_deploy {
+
 /**
  * @brief A simple wrapper of cv::Mat. Used in pipeline.
  *
  */
-class PipelineCvImageWrapper : public async_pipeline::IPipelineImageData {
+class PipelineCvImageWrapper : public IPipelineImageData {
 public:
   PipelineCvImageWrapper(const cv::Mat &cv_image, bool isRGB = false) : inner_cv_image(cv_image)
   {
@@ -40,4 +34,4 @@ private:
   const cv::Mat                     inner_cv_image;
 };
 
-#endif
+} // namespace easy_deploy

@@ -1,12 +1,12 @@
 #pragma once
 
-#include "deploy_core/base_detection.h"
+#include "deploy_core/base_detection.hpp"
 
 #include <opencv2/imgproc.hpp>
 
 #define DRAW_LINE_THICKNESS 2
 
-namespace common_utils {
+namespace easy_deploy {
 
 class ImageDrawHelper {
 public:
@@ -79,4 +79,4 @@ private:
   std::shared_ptr<cv::Mat> _image;
 };
 
-} // namespace common_utils
+} // namespace easy_deploy

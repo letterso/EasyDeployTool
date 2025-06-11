@@ -1,10 +1,9 @@
 #pragma once
 
 #include <chrono>
-#include <glog/logging.h>
-#include <glog/log_severity.h>
+#include "common_utils/log.hpp"
 
-namespace common_utils {
+namespace easy_deploy {
 
 class FPSCounter {
 public:
@@ -25,7 +24,7 @@ public:
   {
     if (!is_running)
     {
-      LOG(ERROR) << "Please call Start() before counting.";
+      LOG_ERROR("Please call Start() before counting.");
       return;
     }
     sum += i;
@@ -36,7 +35,7 @@ public:
   {
     if (!is_running)
     {
-      LOG(ERROR) << "Please call Start() before calculating FPS.";
+      LOG_ERROR("Please call Start() before calculating FPS.");
       return 0.0;
     }
 
@@ -60,4 +59,4 @@ private:
   std::chrono::high_resolution_clock::time_point start_time; // 开始时间
 };
 
-} // namespace common_utils
+} // namespace easy_deploy

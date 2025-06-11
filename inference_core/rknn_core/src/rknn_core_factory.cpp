@@ -1,13 +1,6 @@
-/*
- * @Description:
- * @Author: Teddywesside 18852056629@163.com
- * @Date: 2024-12-02 19:43:23
- * @LastEditTime: 2024-12-02 19:50:55
- * @FilePath: /easy_deploy/inference_core/rknn_core/src/rknn_core_factory.cpp
- */
-#include "rknn_core/rknn_core.h"
+#include "rknn_core/rknn_core.hpp"
 
-namespace inference_core {
+namespace easy_deploy {
 
 struct RknnInferCoreParams {
   std::string                                          model_path;
@@ -46,4 +39,4 @@ std::shared_ptr<BaseInferCoreFactory> CreateRknnInferCoreFactory(
   return std::make_shared<RknnInferCoreFactory>(params);
 }
 
-} // namespace inference_core
+} // namespace easy_deploy

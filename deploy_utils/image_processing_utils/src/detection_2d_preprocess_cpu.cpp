@@ -1,13 +1,6 @@
-/*
- * @Description:
- * @Author: Teddywesside 18852056629@163.com
- * @Date: 2024-11-19 18:33:00
- * @LastEditTime: 2024-12-02 20:14:25
- * @FilePath: /easy_deploy/deploy_utils/image_processing_utils/src/detection_2d_preprocess_cpu.cpp
- */
-#include "detection_2d_util/detection_2d_util.h"
+#include "detection_2d_util/detection_2d_util.hpp"
 
-namespace detection_2d {
+namespace easy_deploy {
 
 class DetPreProcessCPU : public IDetectionPreProcess {
 public:
@@ -16,10 +9,10 @@ public:
                    bool                      do_transpose = true,
                    bool                      do_norm      = true);
 
-  float Preprocess(std::shared_ptr<async_pipeline::IPipelineImageData> input_image_data,
-                   inference_core::ITensor                            *tensor,
-                   int                                                 dst_height,
-                   int                                                 dst_width) override;
+  float Preprocess(std::shared_ptr<IPipelineImageData> input_image_data,
+                   ITensor                            *tensor,
+                   int                                 dst_height,
+                   int                                 dst_width) override;
 
 private:
   void FlipChannelsWithNorm(const cv::Mat &image, float *dst_ptr, bool flip);
@@ -39,11 +32,10 @@ DetPreProcessCPU::DetPreProcessCPU(const std::vector<float> &mean,
     : mean_(mean), val_(val), do_transpose_(do_transpose), do_norm_(do_norm)
 {}
 
-float DetPreProcessCPU::Preprocess(
-    std::shared_ptr<async_pipeline::IPipelineImageData> input_image_data,
-    inference_core::ITensor                            *tensor,
-    int                                                 dst_height,
-    int                                                 dst_width)
+float DetPreProcessCPU::Preprocess(std::shared_ptr<IPipelineImageData> input_image_data,
+                                   ITensor                            *tensor,
+                                   int                                 dst_height,
+                                   int                                 dst_width)
 {
   // 0. Make sure read/write on the host-side memory buffer
   tensor->SetBufferLocation(DataLocation::HOST);
@@ -245,4 +237,4 @@ std::shared_ptr<BaseDetectionPreprocessFactory> CreateCpuDetPreProcessFactory(
   return std::make_shared<Detection2DPreprocessCpuFactory>(params);
 }
 
-} // namespace detection_2d
+} // namespace easy_deploy

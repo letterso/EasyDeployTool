@@ -1,19 +1,12 @@
-/*
- * @Description:
- * @Author: Teddywesside 18852056629@163.com
- * @Date: 2024-11-25 14:00:38
- * @LastEditTime: 2024-11-26 09:31:01
- * @FilePath: /EasyDeploy/inference_core/trt_core/src/trt_blob_buffer.hpp
- */
-#ifndef __EASY_DEPLOY_TRT_BLOB_BUFFER_H
-#define __EASY_DEPLOY_TRT_BLOB_BUFFER_H
+#pragma once
 
 #include <cuda_runtime.h>
 #include <assert.h>
+#include <cstring>
 
-#include "deploy_core/blob_buffer.h"
+#include "deploy_core/blob_buffer.hpp"
 
-namespace inference_core {
+namespace easy_deploy {
 
 template <typename Type>
 inline Type CumVector(const std::vector<Type> &vec)
@@ -156,9 +149,8 @@ public:
   void SetShape(const std::vector<size_t> &shape) override
   {
     size_t this_shape_byte_size = byte_size_per_element_ * CumVector(shape);
-    CHECK_STATE_THROW(
-        this_shape_byte_size <= GetBufferMaxByteSize(),
-        "[TrtTensor] `SetShape` Got invalid shape: exceeds max byte size !");
+    CHECK_STATE_THROW(this_shape_byte_size <= GetBufferMaxByteSize(),
+                      "[TrtTensor] `SetShape` Got invalid shape: exceeds max byte size !");
     current_shape_ = shape;
   }
 
@@ -184,12 +176,10 @@ public:
   DataLocation        current_location_{DataLocation::HOST};
   std::vector<size_t> current_shape_;
   std::vector<size_t> default_shape_;
-  size_t byte_size_per_element_;
+  size_t              byte_size_per_element_;
 
-  std::unique_ptr<void, std::function<void(void*)>> self_maintain_buffer_device_{nullptr};
-  std::unique_ptr<u_char[]> self_maintain_buffer_host_{nullptr};
+  std::unique_ptr<void, std::function<void(void *)>> self_maintain_buffer_device_{nullptr};
+  std::unique_ptr<u_char[]>                          self_maintain_buffer_host_{nullptr};
 };
 
-} // namespace inference_core
-
-#endif
+} // namespace easy_deploy

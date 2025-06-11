@@ -1,32 +1,24 @@
-/*
- * @Description:
- * @Author: Teddywesside 18852056629@163.com
- * @Date: 2024-11-25 18:38:34
- * @LastEditTime: 2024-12-02 19:03:30
- * @FilePath: /easy_deploy/deploy_core/include/deploy_core/base_sam.h
- */
-#ifndef __EASY_DEPLOY_BASE_SAM_H
-#define __EASY_DEPLOY_BASE_SAM_H
+#pragma once
 
-#include "deploy_core/base_infer_core.h"
-#include "deploy_core/common_defination.h"
+#include "deploy_core/base_infer_core.hpp"
+#include "deploy_core/common.hpp"
 
 #include <opencv2/opencv.hpp>
 
-namespace sam {
+namespace easy_deploy {
 
 /**
  * @brief The common sam pipeline package wrapper.
  *
  */
-struct SamPipelinePackage : public async_pipeline::IPipelinePackage {
+struct SamPipelinePackage : public IPipelinePackage {
   // maintain image-encoder's blobs buffer
-  std::shared_ptr<inference_core::BlobsTensor> image_encoder_blobs_buffer;
+  std::shared_ptr<BlobsTensor> image_encoder_blobs_buffer;
   // maintain mask-decoder's blobs buffer
-  std::shared_ptr<inference_core::BlobsTensor> mask_decoder_blobs_buffer;
+  std::shared_ptr<BlobsTensor> mask_decoder_blobs_buffer;
 
   // the wrapped pipeline image data
-  std::shared_ptr<async_pipeline::IPipelineImageData> input_image_data;
+  std::shared_ptr<IPipelineImageData> input_image_data;
   // input boxes prompt
   std::vector<BBox2D> boxes;
   // input points prompt
@@ -39,8 +31,8 @@ struct SamPipelinePackage : public async_pipeline::IPipelinePackage {
   cv::Mat mask;
 
   // the blobs buffer used in inference core processing
-  inference_core::BlobsTensor *infer_buffer;
-  inference_core::BlobsTensor *GetInferBuffer() override
+  BlobsTensor *infer_buffer;
+  BlobsTensor *GetInferBuffer() override
   {
     return infer_buffer;
   }
@@ -60,7 +52,7 @@ struct SamPipelinePackage : public async_pipeline::IPipelinePackage {
  */
 class ISamModel {
 protected:
-  typedef std::shared_ptr<async_pipeline::IPipelinePackage> ParsingType;
+  typedef std::shared_ptr<IPipelinePackage> ParsingType;
   virtual ~ISamModel() = default;
   /**
    * @brief The `ImagePreProcess` stage. Inside the method, you should cast the `pipeline_unit`
@@ -117,12 +109,12 @@ protected:
  */
 class SamGenResultType {
 public:
-  cv::Mat operator()(const std::shared_ptr<async_pipeline::IPipelinePackage> &package)
+  cv::Mat operator()(const std::shared_ptr<IPipelinePackage> &package)
   {
     auto sam_package = std::dynamic_pointer_cast<SamPipelinePackage>(package);
     if (sam_package == nullptr)
     {
-      LOG(ERROR) << "[SamGenResultType] Got INVALID package ptr!!!";
+      LOG_ERROR("[SamGenResultType] Got INVALID package ptr!!!");
       return {};
     }
     return std::move(sam_package->mask);
@@ -136,10 +128,9 @@ public:
  * independent.
  *
  */
-class BaseSamModel : public ISamModel,
-                     public async_pipeline::BaseAsyncPipeline<cv::Mat, SamGenResultType> {
+class BaseSamModel : public ISamModel, public BaseAsyncPipeline<cv::Mat, SamGenResultType> {
 protected:
-  using ParsingType = std::shared_ptr<async_pipeline::IPipelinePackage>;
+  using ParsingType = std::shared_ptr<IPipelinePackage>;
   /**
    * @brief Construct `BaseSamModel` with `image_encoder_core` and at least one of `mask_points_
    * decoder_core` or `mask_boxes_decoder_core`. Will throw exception if both decoders with points
@@ -150,10 +141,10 @@ protected:
    * @param mask_points_decoder_core
    * @param mask_boxes_decoder_core
    */
-  BaseSamModel(const std::string                             &model_name,
-               std::shared_ptr<inference_core::BaseInferCore> image_encoder_core,
-               std::shared_ptr<inference_core::BaseInferCore> mask_points_decoder_core,
-               std::shared_ptr<inference_core::BaseInferCore> mask_boxes_decoder_core);
+  BaseSamModel(const std::string             &model_name,
+               std::shared_ptr<BaseInferCore> image_encoder_core,
+               std::shared_ptr<BaseInferCore> mask_points_decoder_core,
+               std::shared_ptr<BaseInferCore> mask_boxes_decoder_core);
 
   virtual ~BaseSamModel();
 
@@ -244,9 +235,9 @@ private:
   void ConfigurePointPipeline();
 
 protected:
-  std::shared_ptr<inference_core::BaseInferCore> image_encoder_core_;
-  std::shared_ptr<inference_core::BaseInferCore> mask_points_decoder_core_;
-  std::shared_ptr<inference_core::BaseInferCore> mask_boxes_decoder_core_;
+  std::shared_ptr<BaseInferCore> image_encoder_core_;
+  std::shared_ptr<BaseInferCore> mask_points_decoder_core_;
+  std::shared_ptr<BaseInferCore> mask_boxes_decoder_core_;
 
   const std::string box_pipeline_name_;
   const std::string point_pipeline_name_;
@@ -259,9 +250,7 @@ protected:
  */
 class BaseSamFactory {
 public:
-  virtual std::shared_ptr<sam::BaseSamModel> Create() = 0;
+  virtual std::shared_ptr<BaseSamModel> Create() = 0;
 };
 
-} // namespace sam
-
-#endif
+} // namespace easy_deploy

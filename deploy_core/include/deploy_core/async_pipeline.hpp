@@ -1,12 +1,4 @@
-/*
- * @Description:
- * @Author: Teddywesside 18852056629@163.com
- * @Date: 2024-11-25 14:00:38
- * @LastEditTime: 2024-11-26 22:29:22
- * @FilePath: /easy_deploy/deploy_core/include/deploy_core/async_pipeline.h
- */
-#ifndef ___DEPLOY_CORE_ASYNC_PIPELINE_H
-#define ___DEPLOY_CORE_ASYNC_PIPELINE_H
+#pragma once
 
 #include <functional>
 #include <future>
@@ -14,14 +6,11 @@
 #include <thread>
 #include <unordered_map>
 
-#include <glog/logging.h>
-#include <glog/log_severity.h>
+#include "deploy_core/async_pipeline_impl.hpp"
+#include "deploy_core/blob_buffer.hpp"
+#include "common_utils/block_queue.hpp"
 
-#include "deploy_core/async_pipeline_impl.h"
-#include "deploy_core/blob_buffer.h"
-#include "deploy_core/block_queue.h"
-
-namespace async_pipeline {
+namespace easy_deploy {
 
 /**
  * @brief A abstract class of image data. Needed by pipeline processing. Useful when data is
@@ -56,9 +45,9 @@ public:
    * which will be used to deploy inference. Case the algorithm may need multiple inference
    * core and multiple blobs buffer to complete the whole processing.
    *
-   * @return inference_core::BlobsTensor*
+   * @return BlobsTensor*
    */
-  virtual inference_core::BlobsTensor *GetInferBuffer() = 0;
+  virtual BlobsTensor *GetInferBuffer() = 0;
 
 protected:
   virtual ~IPipelinePackage() = default;
@@ -148,15 +137,16 @@ public:
   {
     if (map_name2instance_.find(pipeline_name) == map_name2instance_.end())
     {
-      LOG(ERROR) << "[BaseAsyncPipeline] `PushPipeline` pipeline {" << pipeline_name
-                 << "} is not valid !!!";
+      LOG_ERROR("[BaseAsyncPipeline] `PushPipeline` pipeline {%s} is not valid !!!",
+                pipeline_name.c_str());
       return std::future<ResultType>();
     }
 
     if (!map_name2instance_.at(pipeline_name).IsInitialized())
     {
-      LOG(ERROR) << "[BaseAsyncPipeline] `PushPipeline` pipeline {" << pipeline_name
-                 << "} is not initilized !!!";
+      LOG_ERROR("[BaseAsyncPipeline] `PushPipeline` pipeline {%s} is not initilized !!!",
+                pipeline_name.c_str());
+      ;
       return std::future<ResultType>();
     }
 
@@ -237,6 +227,4 @@ private:
   GenResult                                            gen_result_from_package_;
 };
 
-} // namespace async_pipeline
-
-#endif
+} // namespace easy_deploy

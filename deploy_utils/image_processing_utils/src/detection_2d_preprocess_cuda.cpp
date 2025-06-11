@@ -1,11 +1,4 @@
-/*
- * @Description:
- * @Author: Teddywesside 18852056629@163.com
- * @Date: 2024-11-19 18:33:00
- * @LastEditTime: 2024-12-02 20:14:47
- * @FilePath: /easy_deploy/deploy_utils/image_processing_utils/src/detection_2d_preprocess_cuda.cpp
- */
-#include "detection_2d_util/detection_2d_util.h"
+#include "detection_2d_util/detection_2d_util.hpp"
 
 #include <cuda_runtime.h>
 
@@ -17,7 +10,7 @@ extern "C" float CallCudaPreprocess(const uint8_t *src,
                                     int            dst_height,
                                     void          *unified_mem_buffer);
 
-namespace detection_2d {
+namespace easy_deploy {
 
 class DetPreProcessCUDA : public IDetectionPreProcess {
 public:
@@ -25,10 +18,10 @@ public:
                     const int max_src_width    = 1920,
                     const int max_src_channels = 3);
 
-  float Preprocess(std::shared_ptr<async_pipeline::IPipelineImageData> input_image_data,
-                   inference_core::ITensor                            *tensor,
-                   int                                                 dst_height,
-                   int                                                 dst_width) override;
+  float Preprocess(std::shared_ptr<IPipelineImageData> input_image_data,
+                   ITensor                            *tensor,
+                   int                                 dst_height,
+                   int                                 dst_width) override;
 
   ~DetPreProcessCUDA();
 
@@ -56,11 +49,10 @@ DetPreProcessCUDA::DetPreProcessCUDA(const int max_src_height,
   }
 }
 
-float DetPreProcessCUDA::Preprocess(
-    std::shared_ptr<async_pipeline::IPipelineImageData> input_image_data,
-    inference_core::ITensor                            *tensor,
-    int                                                 dst_height,
-    int                                                 dst_width)
+float DetPreProcessCUDA::Preprocess(std::shared_ptr<IPipelineImageData> input_image_data,
+                                    ITensor                            *tensor,
+                                    int                                 dst_height,
+                                    int                                 dst_width)
 {
   // 1. Make sure the buffer ptr is on device side
   tensor->SetBufferLocation(DataLocation::DEVICE);
@@ -127,4 +119,4 @@ std::shared_ptr<BaseDetectionPreprocessFactory> CreateCudaDetPreProcessFactory(
   return std::make_shared<Detection2DPreprocessCudaFactory>(params);
 }
 
-} // namespace detection_2d
+} // namespace easy_deploy

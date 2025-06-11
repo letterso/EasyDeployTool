@@ -1,22 +1,15 @@
-/*
- * @Description:
- * @Author: Teddywesside 18852056629@163.com
- * @Date: 2024-11-19 18:33:00
- * @LastEditTime: 2024-11-26 21:56:31
- * @FilePath: /easy_deploy/deploy_core/src/base_infer_core.cpp
- */
-#include "deploy_core/base_infer_core.h"
+#include "deploy_core/base_infer_core.hpp"
 
-namespace inference_core {
+namespace easy_deploy {
 
 // used in sync infer
-struct _InnerSyncInferPackage : public async_pipeline::IPipelinePackage {
+struct _InnerSyncInferPackage : public IPipelinePackage {
 public:
-  BlobsTensor* GetInferBuffer() override
+  BlobsTensor *GetInferBuffer() override
   {
     return buffer;
   }
-  BlobsTensor* buffer;
+  BlobsTensor *buffer;
 };
 
 BaseInferCore::BaseInferCore()
@@ -30,7 +23,7 @@ BaseInferCore::BaseInferCore()
   ConfigPipeline("InferCore Pipieline", {preprocess_block, inference_block, postprocess_block});
 }
 
-bool BaseInferCore::SyncInfer(BlobsTensor* tensors, const int batch_size)
+bool BaseInferCore::SyncInfer(BlobsTensor *tensors, const int batch_size)
 {
   auto inner_package    = std::make_shared<_InnerSyncInferPackage>();
   inner_package->buffer = tensors;
@@ -59,7 +52,7 @@ void BaseInferCore::Init(size_t mem_buf_size)
                                 std::to_string(mem_buf_size));
   }
   mem_buf_pool_ = std::make_unique<MemBufferPool>(this, mem_buf_size);
-  LOG(INFO) << "successfully init mem buf pool with pool_size : " << mem_buf_size;
+  LOG_DEBUG("successfully init mem buf pool with pool_size : %ld", mem_buf_size);
 }
 
 BaseInferCore::~BaseInferCore()
@@ -67,4 +60,4 @@ BaseInferCore::~BaseInferCore()
   Release();
 }
 
-} // namespace inference_core
+} // namespace easy_deploy

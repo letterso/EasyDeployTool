@@ -7,10 +7,9 @@
 #include <nlohmann/json.hpp>
 #include <fstream>
 
-namespace eval_utils {
+namespace easy_deploy {
 
-using namespace detection_2d;
-using namespace common_utils;
+using namespace easy_deploy;
 
 static void WriteResultToJson(const std::string &file_path, const std::vector<BBox2D> &results)
 {
@@ -31,9 +30,9 @@ static void WriteResultToJson(const std::string &file_path, const std::vector<BB
   ofs.close();
 }
 
-static void generate_coco_result(const std::shared_ptr<detection_2d::BaseDetectionModel> &model,
-                                 const std::string &coco_val_dir_path,
-                                 const std::string &save_result_tmp_path)
+static void generate_coco_result(const std::shared_ptr<BaseDetectionModel> &model,
+                                 const std::string                         &coco_val_dir_path,
+                                 const std::string                         &save_result_tmp_path)
 {
   static const std::unordered_set<std::string> valid_ext{".jpg", ".png", ".jpeg", ".bmp"};
 
@@ -101,8 +100,8 @@ static void eval_detection_result_with_python(const std::string &save_result_tmp
   }
 }
 
-void eval_accuracy_coco_detection_2d(const std::shared_ptr<detection_2d::BaseDetectionModel> &model,
-                                     const std::string &coco_val_dir_path,
+void eval_accuracy_coco_detection_2d(const std::shared_ptr<BaseDetectionModel> &model,
+                                     const std::string                         &coco_val_dir_path,
                                      const std::string &coco_annotations_path)
 {
   const std::string save_result_tmp_paht = "/tmp/detection_coco_val_result/";
@@ -111,4 +110,4 @@ void eval_accuracy_coco_detection_2d(const std::shared_ptr<detection_2d::BaseDet
   eval_detection_result_with_python(save_result_tmp_paht, coco_annotations_path);
 }
 
-} // namespace eval_utils
+} // namespace easy_deploy

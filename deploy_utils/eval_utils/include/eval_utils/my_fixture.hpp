@@ -5,9 +5,8 @@
 #include <iostream>
 
 #include <gflags/gflags.h>
-#include <glog/logging.h>
 
-namespace eval_utils {
+namespace easy_deploy {
 
 struct FixtureCase {
   std::string           name;
@@ -62,4 +61,4 @@ private:
     return FixtureRegistry::instance().run(filter); \
   }
 
-} // namespace eval_utils
+} // namespace easy_deploy

@@ -1,10 +1,8 @@
-#include "ort_core/ort_core.h"
+#include "ort_core/ort_core.hpp"
 
-#include <glog/logging.h>
-#include <glog/log_severity.h>
 #include "ort_blob_buffer.hpp"
 
-namespace inference_core {
+namespace easy_deploy {
 
 enum BlobType { kINPUT = 0, kOUTPUT = 1 };
 
@@ -39,11 +37,11 @@ public:
   }
 
 private:
-  bool PreProcess(std::shared_ptr<async_pipeline::IPipelinePackage> buffer) override;
+  bool PreProcess(std::shared_ptr<IPipelinePackage> buffer) override;
 
-  bool Inference(std::shared_ptr<async_pipeline::IPipelinePackage> buffer) override;
+  bool Inference(std::shared_ptr<IPipelinePackage> buffer) override;
 
-  bool PostProcess(std::shared_ptr<async_pipeline::IPipelinePackage> buffer) override;
+  bool PostProcess(std::shared_ptr<IPipelinePackage> buffer) override;
 
 private:
   std::unordered_map<std::string, std::vector<uint64_t>> ResolveModelInputInformation();
@@ -67,14 +65,14 @@ OrtInferCore::OrtInferCore(
     const int                                                     num_threads)
 {
   // onnxruntime session initialization
-  LOG(INFO) << "start initializing onnxruntime session with onnx model {" << onnx_path << "} ...";
+  LOG_DEBUG("start initializing onnxruntime session with onnx model {%s} ...", onnx_path.c_str());
   ort_env_ = std::make_shared<Ort::Env>(ORT_LOGGING_LEVEL_ERROR, onnx_path.data());
   Ort::SessionOptions session_options;
   session_options.SetIntraOpNumThreads(num_threads);
   session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_EXTENDED);
   session_options.SetLogSeverityLevel(4);
   ort_session_ = std::make_shared<Ort::Session>(*ort_env_, onnx_path.c_str(), session_options);
-  LOG(INFO) << "successfully created onnxruntime session!";
+  LOG_DEBUG("successfully created onnxruntime session!");
 
   map_input_blob_name2shape_ =
       input_blobs_shape.empty() ? ResolveModelInputInformation() : input_blobs_shape;
@@ -91,7 +89,8 @@ OrtInferCore::OrtInferCore(
           {
             s_blob_shape += std::to_string(dim) + "\t";
           }
-          LOG(INFO) << p_name_shape.first << "\tshape: " << s_blob_shape;
+          LOG_DEBUG("blob name : %s, blob shape : %s", p_name_shape.first.c_str(),
+                    s_blob_shape.c_str());
         }
       };
 
@@ -135,7 +134,7 @@ std::unordered_map<std::string, std::vector<uint64_t>> OrtInferCore::ResolveMode
       ret[s_blob_name].push_back(blob_shape[i]);
     }
     s_blob_info += "\ttotal elements: " + std::to_string(blob_element_size);
-    LOG(INFO) << s_blob_info;
+    LOG_DEBUG(s_blob_info.c_str());
   }
 
   return ret;
@@ -175,7 +174,7 @@ std::unordered_map<std::string, std::vector<uint64_t>> OrtInferCore::ResolveMode
       ret[s_blob_name].push_back(blob_shape[i]);
     }
     s_blob_info += "\ttotal elements: " + std::to_string(blob_element_size);
-    LOG(INFO) << s_blob_info;
+    LOG_DEBUG(s_blob_info.c_str());
   }
 
   return ret;
@@ -203,8 +202,7 @@ std::unique_ptr<BlobsTensor> OrtInferCore::AllocBlobsBuffer()
         ort_session_->GetInputTypeInfo(i).GetTensorTypeAndShapeInfo().GetElementType();
     CHECK_STATE_THROW(
         map_tensor_type_byte_size_.find(tensor_type) != map_tensor_type_byte_size_.end(),
-        "[ort_core] Got invalid tensor type : " +
-            std::to_string(static_cast<uint32_t>(tensor_type)));
+        "[ort_core] Got invalid tensor type : %d", static_cast<uint32_t>(tensor_type));
 
     tensor->name_                      = s_blob_name;
     tensor->byte_size_per_element_     = map_tensor_type_byte_size_.at(tensor_type);
@@ -231,8 +229,7 @@ std::unique_ptr<BlobsTensor> OrtInferCore::AllocBlobsBuffer()
         ort_session_->GetOutputTypeInfo(i).GetTensorTypeAndShapeInfo().GetElementType();
     CHECK_STATE_THROW(
         map_tensor_type_byte_size_.find(tensor_type) != map_tensor_type_byte_size_.end(),
-        "[ort_core] Got invalid tensor type : " +
-            std::to_string(static_cast<uint32_t>(tensor_type)));
+        "[ort_core] Got invalid tensor type : %d", static_cast<uint32_t>(tensor_type));
 
     tensor->name_                      = s_blob_name;
     tensor->byte_size_per_element_     = map_tensor_type_byte_size_.at(tensor_type);
@@ -248,12 +245,12 @@ std::unique_ptr<BlobsTensor> OrtInferCore::AllocBlobsBuffer()
   return std::make_unique<BlobsTensor>(std::move(tensor_map));
 }
 
-bool OrtInferCore::PreProcess(std::shared_ptr<async_pipeline::IPipelinePackage> pipeline_unit)
+bool OrtInferCore::PreProcess(std::shared_ptr<IPipelinePackage> pipeline_unit)
 {
   return true;
 }
 
-bool OrtInferCore::Inference(std::shared_ptr<async_pipeline::IPipelinePackage> pipeline_unit)
+bool OrtInferCore::Inference(std::shared_ptr<IPipelinePackage> pipeline_unit)
 {
   // 获取内存缓存
   CHECK_STATE(pipeline_unit != nullptr, "[ort_core] Inference got invalid pipeline_unit!");
@@ -272,7 +269,8 @@ bool OrtInferCore::Inference(std::shared_ptr<async_pipeline::IPipelinePackage> p
   {
     const auto &blob_name = p_name_shape.first;
     auto        tensor    = dynamic_cast<OrtTensor *>(blobs_tensor->GetTensor(blob_name));
-    CHECK_STATE(tensor != nullptr, "[ort_core] Inference got invalid tensor : " + blob_name);
+    CHECK_STATE(tensor != nullptr, "[ort_core] Inference got invalid tensor : %s",
+                blob_name.c_str());
 
     input_blob_names.push_back(tensor->GetName().c_str());
     input_blob_values.push_back(
@@ -285,7 +283,8 @@ bool OrtInferCore::Inference(std::shared_ptr<async_pipeline::IPipelinePackage> p
   {
     const auto &blob_name = p_name_shape.first;
     auto        tensor    = dynamic_cast<OrtTensor *>(blobs_tensor->GetTensor(blob_name));
-    CHECK_STATE(tensor != nullptr, "[ort_core] Inference got invalid tensor : " + blob_name);
+    CHECK_STATE(tensor != nullptr, "[ort_core] Inference got invalid tensor : %s",
+                blob_name.c_str());
 
     output_blob_names.push_back(tensor->GetName().c_str());
     output_blob_values.push_back(
@@ -302,7 +301,7 @@ bool OrtInferCore::Inference(std::shared_ptr<async_pipeline::IPipelinePackage> p
   return true;
 }
 
-bool OrtInferCore::PostProcess(std::shared_ptr<async_pipeline::IPipelinePackage> buffer)
+bool OrtInferCore::PostProcess(std::shared_ptr<IPipelinePackage> buffer)
 {
   return true;
 }
@@ -317,4 +316,4 @@ std::shared_ptr<BaseInferCore> CreateOrtInferCore(
                                         num_threads);
 }
 
-} // namespace inference_core
+} // namespace easy_deploy

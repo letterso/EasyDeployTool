@@ -1,15 +1,8 @@
-/*
- * @Description:
- * @Author: Teddywesside 18852056629@163.com
- * @Date: 2024-11-24 20:05:41
- * @LastEditTime: 2024-11-26 21:57:33
- * @FilePath: /easy_deploy/deploy_core/src/base_sam.cpp
- */
-#include "deploy_core/base_sam.h"
+#include "deploy_core/base_sam.hpp"
 
-#include "deploy_core/wrapper.h"
+#include "deploy_core/wrapper.hpp"
 
-namespace sam {
+namespace easy_deploy {
 
 /**
  * @brief Check if the input arguments are valid
@@ -19,23 +12,24 @@ namespace sam {
  * @param points
  * @param labels
  */
-static bool CheckValidArguments(const cv::Mat                                        &image,
-                                const std::shared_ptr<inference_core::IRotInferCore> &infer_core,
-                                const std::vector<std::pair<int, int>>               &points,
-                                const std::vector<int> &labels) noexcept
+static bool CheckValidArguments(const cv::Mat                          &image,
+                                const std::shared_ptr<IRotInferCore>   &infer_core,
+                                const std::vector<std::pair<int, int>> &points,
+                                const std::vector<int>                 &labels) noexcept
 {
   if (image.empty())
   {
-    LOG(ERROR) << "[BaseSamModel] Got empty image!!!";
+    LOG_ERROR("[BaseSamModel] Got empty image!!!");
     return false;
   } else if (infer_core == nullptr)
   {
-    LOG(ERROR) << "[BaseSamModel] Infer_core with points as prompt is null!!!";
+    LOG_ERROR("[BaseSamModel] Infer_core with points as prompt is null!!!");
     return false;
   } else if (points.size() != labels.size() || points.size() < 1)
   {
-    LOG(ERROR) << "[BaseSamModel] points/labels size is not valid!!! "
-               << "points.size: " << points.size() << ", labels.size: " << labels.size();
+    LOG_ERROR(
+        "[BaseSamModel] points/labels size is not valid!!! points.size: %ld, labels.size: %ld",
+        points.size(), labels.size());
     return false;
   }
 
@@ -49,35 +43,34 @@ static bool CheckValidArguments(const cv::Mat                                   
  * @param infer_core
  * @param boxes
  */
-static bool CheckValidArguments(const cv::Mat                                        &image,
-                                const std::shared_ptr<inference_core::IRotInferCore> &infer_core,
-                                const std::vector<BBox2D> &boxes) noexcept
+static bool CheckValidArguments(const cv::Mat                        &image,
+                                const std::shared_ptr<IRotInferCore> &infer_core,
+                                const std::vector<BBox2D>            &boxes) noexcept
 {
   if (image.empty())
   {
-    LOG(ERROR) << "[BaseSamModel] Got empty image!!!";
+    LOG_ERROR("[BaseSamModel] Got empty image!!!");
     return false;
   } else if (infer_core == nullptr)
   {
-    LOG(ERROR) << "[BaseSamModel] Infer_core with boxes as prompt is null!!!";
+    LOG_ERROR("[BaseSamModel] Infer_core with boxes as prompt is null!!!");
     return false;
   } else if (boxes.size() < 1)
   {
-    LOG(ERROR) << "[BaseSamModel] boxes size is not valid!!! "
-               << "boxes.size: " << boxes.size();
+    LOG_ERROR("[BaseSamModel] boxes size is not valid!!! boxes.size: %ld", boxes.size());
     return false;
   } else if (boxes.size() > 1)
   {
-    LOG(WARNING) << "[BaseSamModel] More than one boxes is not support in sam model!!";
+    LOG_WARN("[BaseSamModel] More than one boxes is not support in sam model!!");
   }
 
   return true;
 }
 
-BaseSamModel::BaseSamModel(const std::string                             &model_name,
-                           std::shared_ptr<inference_core::BaseInferCore> image_encoder_core,
-                           std::shared_ptr<inference_core::BaseInferCore> mask_points_decoder_core,
-                           std::shared_ptr<inference_core::BaseInferCore> mask_boxes_decoder_core)
+BaseSamModel::BaseSamModel(const std::string             &model_name,
+                           std::shared_ptr<BaseInferCore> image_encoder_core,
+                           std::shared_ptr<BaseInferCore> mask_points_decoder_core,
+                           std::shared_ptr<BaseInferCore> mask_boxes_decoder_core)
     : model_name_(model_name),
       image_encoder_core_(image_encoder_core),
       mask_points_decoder_core_(mask_points_decoder_core),
@@ -262,12 +255,12 @@ std::future<cv::Mat> BaseSamModel::GenerateMaskAsync(const cv::Mat              
   // 0. Check
   if (!CheckValidArguments(image, mask_points_decoder_core_, points, labels))
   {
-    LOG(ERROR) << "[BaseSamModel] `GenerateMask` with points got invalid arguments";
+    LOG_ERROR("[BaseSamModel] `GenerateMask` with points got invalid arguments");
     return std::future<cv::Mat>();
   }
   if (!BaseAsyncPipeline::IsPipelineInitialized(point_pipeline_name_))
   {
-    LOG(ERROR) << "[BaseSamModel] Async pipeline with points as prompt is not initialized yet!!!";
+    LOG_ERROR("[BaseSamModel] Async pipeline with points as prompt is not initialized yet!!!");
     return std::future<cv::Mat>();
   }
 
@@ -295,13 +288,13 @@ std::future<cv::Mat> BaseSamModel::GenerateMaskAsync(const cv::Mat             &
   // 0. check
   if (!CheckValidArguments(image, mask_boxes_decoder_core_, boxes))
   {
-    LOG(ERROR) << "[BaseSamModel] `GenerateMask` with boxes got invalid arguments";
+    LOG_ERROR("[BaseSamModel] `GenerateMask` with boxes got invalid arguments");
     return std::future<cv::Mat>();
   }
 
   if (!BaseAsyncPipeline::IsPipelineInitialized(box_pipeline_name_))
   {
-    LOG(ERROR) << "[BaseSamModel] Async pipeline with boxes as prompt is not initialized yet!!!";
+    LOG_ERROR("[BaseSamModel] Async pipeline with boxes as prompt is not initialized yet!!!");
     return std::future<cv::Mat>();
   }
 
@@ -320,4 +313,4 @@ std::future<cv::Mat> BaseSamModel::GenerateMaskAsync(const cv::Mat             &
   return BaseAsyncPipeline::PushPipeline(box_pipeline_name_, package);
 }
 
-} // namespace sam
+} // namespace easy_deploy

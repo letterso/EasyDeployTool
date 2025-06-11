@@ -1,12 +1,12 @@
-#include "deploy_core/base_stereo.h"
-#include "deploy_core/wrapper.h"
+#include "deploy_core/base_stereo.hpp"
+#include "deploy_core/wrapper.hpp"
 
-namespace stereo {
+namespace easy_deploy {
 
 const std::string BaseStereoMatchingModel::stereo_pipeline_name_ = "stereo_pipeline";
 
 BaseStereoMatchingModel::BaseStereoMatchingModel(
-    const std::shared_ptr<inference_core::BaseInferCore> &inference_core)
+    const std::shared_ptr<BaseInferCore> &inference_core)
     : inference_core_(inference_core)
 {
   auto preprocess_block = BaseAsyncPipeline::BuildPipelineBlock(
@@ -54,7 +54,7 @@ std::future<cv::Mat> BaseStereoMatchingModel::ComputeDispAsync(const cv::Mat &le
 {
   if (left_image.empty() || right_image.empty())
   {
-    LOG(ERROR) << "[BaseStereoMatchingModel] `ComputeDispAsync` Got invalid input images !!!";
+    LOG_ERROR("[BaseStereoMatchingModel] `ComputeDispAsync` Got invalid input images !!!");
     return std::future<cv::Mat>();
   }
 
@@ -64,12 +64,12 @@ std::future<cv::Mat> BaseStereoMatchingModel::ComputeDispAsync(const cv::Mat &le
   package->infer_buffer     = inference_core_->GetBuffer(true);
   if (package->infer_buffer == nullptr)
   {
-    LOG(ERROR)
-        << "[BaseStereoMatchingModel] `ComputeDispAsync` Got invalid inference core buffer ptr !!!";
+    LOG_ERROR(
+        "[BaseStereoMatchingModel] `ComputeDispAsync` Got invalid inference core buffer ptr !!!");
     return std::future<cv::Mat>();
   }
 
   return BaseAsyncPipeline::PushPipeline(stereo_pipeline_name_, package);
 }
 
-} // namespace stereo
+} // namespace easy_deploy
