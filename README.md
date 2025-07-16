@@ -51,6 +51,15 @@ The `EasyDeploy` project aims to address these challenges in two key ways:
     - **GoogleTest**
     - Specific dependencies for each **inference framework**
 
+### Install
+
+only support `deploy_core`, `common_utils`, `image_processing_utils` and inference_core
+```
+cmake .. -DCMAKE_BUILD_TYPE=Release \
+         -DCMAKE_INSTALL_PREFIX:PATH=../release \
+         -DENABLE_ORT=ON
+```
+
 ### Environment Build
 - Follow [EnvironmentSetup](doc/EnviromentSetup.md) to setup enviroment with scripts quickly.
 
