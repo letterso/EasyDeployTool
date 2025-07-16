@@ -1,5 +1,5 @@
 #include "rknn_core/rknn_core.hpp"
-#include "rknn_blob_buffer.hpp"
+#include "rknn_core/rknn_blob_buffer.hpp"
 #include <unordered_map>
 
 #include <rknn_api.h>

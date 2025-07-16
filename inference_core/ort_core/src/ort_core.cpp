@@ -1,6 +1,6 @@
 #include "ort_core/ort_core.hpp"
 
-#include "ort_blob_buffer.hpp"
+#include "ort_core/ort_blob_buffer.hpp"
 
 namespace easy_deploy {
 

@@ -21,5 +21,10 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
 
 install(TARGETS ${PROJECT_NAME}
         LIBRARY DESTINATION lib)
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/
+        DESTINATION include
+        FILES_MATCHING
+          PATTERN "*.h"
+          PATTERN "*.hpp")
 
 target_include_directories(${PROJECT_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/include)

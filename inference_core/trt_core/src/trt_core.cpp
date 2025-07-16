@@ -12,7 +12,7 @@
 #include <NvInferPlugin.h>
 #include <cuda_runtime_api.h>
 
-#include "trt_blob_buffer.hpp"
+#include "trt_core/trt_blob_buffer.hpp"
 
 namespace easy_deploy {
 

@@ -8,12 +8,12 @@ set(CMAKE_CXX_STANDARD 17)
 
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64")
   message(STATUS "Building OnnxRuntime-Core on x86_64 platform ...")
-  set(ONNXRUNTIME_INCLUDE_DIRS onnxruntime-pkg-x86/include)
-  FILE(GLOB ONNXRUNTIME_LIBS onnxruntime-pkg-x86/lib/*.so)
+  set(ONNXRUNTIME_DIRS onnxruntime-linux-x64)
+  FILE(GLOB ONNXRUNTIME_LIBS onnxruntime-linux-x64/lib/*.so)
 elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
   message(STATUS "Building OnnxRuntime-Core on aarch64 platform ...")
-  set(ONNXRUNTIME_INCLUDE_DIRS onnxruntime-pkg-aarch64/include)
-  FILE(GLOB ONNXRUNTIME_LIBS onnxruntime-pkg-aarch64/lib/*.so)
+  set(ONNXRUNTIME_DIRS onnxruntime-linux-aarch64)
+  FILE(GLOB ONNXRUNTIME_LIBS onnxruntime-linux-aarch64/lib/*.so)
 else()
   message(FATAL_ERROR "Unsupported architecture: ${CMAKE_SYSTEM_PROCESSOR}. \
                       Supported architectures are x86_64 and aarch64.")
@@ -27,7 +27,7 @@ set(source_file
 
 include_directories(
   include
-  ${ONNXRUNTIME_INCLUDE_DIRS}
+  ${ONNXRUNTIME_DIRS}/include
 )
 
 add_library(${PROJECT_NAME} SHARED ${source_file})
@@ -39,5 +39,15 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
 
 install(TARGETS ${PROJECT_NAME}
         LIBRARY DESTINATION lib)
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/
+        DESTINATION include
+        FILES_MATCHING
+          PATTERN "*.h"
+          PATTERN "*.hpp")
+
+install(DIRECTORY ${ONNXRUNTIME_DIRS}/lib/
+        DESTINATION lib)
+install(DIRECTORY ${ONNXRUNTIME_DIRS}/include/
+        DESTINATION include)
 
 target_include_directories(${PROJECT_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/include)
